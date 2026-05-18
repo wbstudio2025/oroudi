@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>محرر عروض الأسعار | الدر النفيس</title>
-    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="styles.css?v=project-workspace">
   </head>
   <body>
     <header class="app-header">
@@ -12,7 +12,7 @@
         <img src="assets/LOGO.png" alt="شعار شركة الدر النفيس للاستشارات الهندسية">
         <div>
           <p>شركة الدر النفيس للاستشارات الهندسية</p>
-          <h1>محرر عروض خدمات التصميم وإصدار رخصة بناء</h1>
+          <h1>محرر عروض</h1>
         </div>
       </div>
       <div class="actions">
@@ -52,8 +52,25 @@
         </div>
         <div id="preview" class="preview"></div>
       </section>
+
+      <aside class="projects-panel" aria-label="المشاريع المحفوظة">
+        <div class="panel-heading">
+          <span class="section-mark"></span>
+          <div>
+            <h2>المشاريع</h2>
+            <p>احفظ العروض وانتقل بينها.</p>
+          </div>
+        </div>
+        <div class="projects-actions">
+          <button id="newProjectBtn" class="secondary-btn" type="button">مشروع جديد</button>
+          <button id="saveProjectBtn" class="primary-btn" type="button">حفظ المشروع</button>
+          <button id="duplicateProjectBtn" class="secondary-btn" type="button">حفظ كنسخة</button>
+        </div>
+        <div id="projectsList" class="projects-list" aria-live="polite"></div>
+        <button id="deleteProjectBtn" class="danger-btn" type="button">حذف المشروع الحالي</button>
+      </aside>
     </main>
 
-    <script src="app.js?v=project-types"></script>
+    <script src="app.js?v=project-workspace"></script>
   </body>
 </html>

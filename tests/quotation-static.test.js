@@ -5,6 +5,7 @@ const path = require("node:path");
 const root = path.resolve(__dirname, "..");
 const app = fs.readFileSync(path.join(root, "app.js"), "utf8");
 const css = fs.readFileSync(path.join(root, "styles.css"), "utf8");
+const html = fs.readFileSync(path.join(root, "index.html"), "utf8");
 
 function test(name, fn) {
   try {
@@ -115,4 +116,45 @@ test("quotation date uses a popup Gregorian calendar with faded Hijri dates", ()
   assert.match(app, /setQuotationDate\(dateChoice\.dataset\.dateChoice\)/);
   assert.match(css, /\.date-picker\s*{/);
   assert.match(css, /\.hijri-day\s*{[\s\S]*opacity:\s*0\.48/);
+});
+
+test("desktop workspace uses projects right preview center and inputs left", () => {
+  assert.match(html, /class="projects-panel"/);
+  assert.match(html, /id="projectsList"/);
+  assert.match(css, /\.workspace\s*{[\s\S]*grid-template-areas:\s*"editor preview projects"/);
+  assert.match(css, /\.editor-panel\s*{[\s\S]*grid-area:\s*editor/);
+  assert.match(css, /\.preview-shell\s*{[\s\S]*grid-area:\s*preview/);
+  assert.match(css, /\.projects-panel\s*{[\s\S]*grid-area:\s*projects/);
+  assert.match(css, /\.workspace\s*{[\s\S]*direction:\s*ltr/);
+  assert.match(css, /\.workspace\s*>\s*\*\s*{[\s\S]*direction:\s*rtl/);
+});
+
+test("saved projects persist locally and can be switched from the projects panel", () => {
+  assert.match(app, /const PROJECTS_STORAGE_KEY\s*=/);
+  assert.match(app, /localStorage\.getItem\(PROJECTS_STORAGE_KEY\)/);
+  assert.match(app, /localStorage\.setItem\(PROJECTS_STORAGE_KEY/);
+  assert.match(app, /function renderProjectsPanel\(\)/);
+  assert.match(app, /data-project-id="\$\{escapeHtml\(project\.id\)\}"/);
+  assert.match(app, /function saveActiveProject\(\)/);
+  assert.match(app, /function createNewProject\(\)/);
+  assert.match(app, /function duplicateActiveProject\(\)/);
+  assert.match(app, /function deleteActiveProject\(\)/);
+});
+
+test("cover title is driven by a permit type dropdown", () => {
+  assert.match(app, /permitType:\s*"إصدار رخصة بناء"/);
+  assert.match(app, /const permitTypeOptions\s*=/);
+  [
+    "إصدار رخصة بناء",
+    "إصدار رخصة تسوير",
+    "إضافة وتعديل مكونات بناء",
+    "إصدار رخصة ترميم بناء",
+    "إصدار رخصة هدم بناء",
+    "تجديد رخصة بناء",
+    "تصحيح بيانات رخصة بناء"
+  ].forEach((permitName) => assert.ok(app.includes(permitName), permitName));
+  assert.match(app, /\["permitType", "نوع الرخصة", "permit"\]/);
+  assert.match(app, /function getPermitTitle\(\)/);
+  assert.match(app, /<h2>\$\{escapeHtml\(getPermitTitle\(\)\)\}<\/h2>/);
+  assert.doesNotMatch(app, /<h2>عرض خدمات التصميم وإصدار رخصة بناء<\/h2>/);
 });

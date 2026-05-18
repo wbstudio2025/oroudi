@@ -10,6 +10,7 @@ const quotationData = {
   hijriDate: "",
   validityPeriod: "10 أيام",
   clientName: "طاهره محمد أحمد بكرين",
+  permitType: "إصدار رخصة بناء",
   projectType: "فيلا سكنية",
   city: "جدة",
   district: "السامر",
@@ -103,6 +104,14 @@ const preview = document.querySelector("#preview");
 const pageCount = document.querySelector("#pageCount");
 const printBtn = document.querySelector("#printBtn");
 const resetBtn = document.querySelector("#resetBtn");
+const projectsList = document.querySelector("#projectsList");
+const newProjectBtn = document.querySelector("#newProjectBtn");
+const saveProjectBtn = document.querySelector("#saveProjectBtn");
+const duplicateProjectBtn = document.querySelector("#duplicateProjectBtn");
+const deleteProjectBtn = document.querySelector("#deleteProjectBtn");
+
+const PROJECTS_STORAGE_KEY = "duralNafisQuotationProjects";
+const ACTIVE_PROJECT_STORAGE_KEY = "duralNafisActiveQuotationProject";
 
 const projectTypeOptions = [
   "فيلا سكنية",
@@ -124,6 +133,37 @@ const projectTypeOptions = [
   "مصنع أو ورشة"
 ];
 
+const permitTypeOptions = [
+  {
+    value: "إصدار رخصة بناء",
+    title: "عرض خدمات التصميم وإصدار رخصة بناء"
+  },
+  {
+    value: "إصدار رخصة تسوير",
+    title: "عرض خدمات التصميم وإصدار رخصة تسوير"
+  },
+  {
+    value: "إضافة وتعديل مكونات بناء",
+    title: "عرض خدمات إضافة وتعديل مكونات بناء"
+  },
+  {
+    value: "إصدار رخصة ترميم بناء",
+    title: "عرض خدمات إصدار رخصة ترميم بناء"
+  },
+  {
+    value: "إصدار رخصة هدم بناء",
+    title: "عرض خدمات إصدار رخصة هدم بناء"
+  },
+  {
+    value: "تجديد رخصة بناء",
+    title: "عرض خدمات تجديد رخصة بناء"
+  },
+  {
+    value: "تصحيح بيانات رخصة بناء",
+    title: "عرض خدمات تصحيح بيانات رخصة بناء"
+  }
+];
+
 const fields = [
   {
     title: "بيانات العميل والعرض",
@@ -137,6 +177,7 @@ const fields = [
   {
     title: "بيانات المشروع",
     items: [
+      ["permitType", "نوع الرخصة", "permit"],
       ["projectType", "نوع المشروع", "select"],
       ["city", "المدينة"],
       ["district", "الحي"],
@@ -225,6 +266,8 @@ function setQuotationDate(isoDate) {
 setQuotationDate(quotationData.dateIso);
 const initialSnapshot = JSON.stringify(quotationData);
 let datePickerMonthIso = quotationData.dateIso;
+let savedProjects = [];
+let activeProjectId = "";
 
 function formatPercent(percent) {
   const value = String(percent).trim();
@@ -272,6 +315,181 @@ function getPaymentAmount(percent) {
     vat,
     total
   };
+}
+
+function getPermitTitle() {
+  const selectedPermit = permitTypeOptions.find((permit) => permit.value === quotationData.permitType);
+  return selectedPermit ? selectedPermit.title : permitTypeOptions[0].title;
+}
+
+function cloneData(data) {
+  return JSON.parse(JSON.stringify(data));
+}
+
+function createProjectId() {
+  return `project-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function getProjectName(data = quotationData) {
+  const client = String(data.clientName || "").trim();
+  const projectType = String(data.projectType || "").trim();
+  const district = String(data.district || "").trim();
+
+  return [client, projectType, district].filter(Boolean).join(" - ") || "مشروع بدون اسم";
+}
+
+function formatProjectUpdatedAt(isoDate) {
+  if (!isoDate) {
+    return "";
+  }
+
+  return new Intl.DateTimeFormat("ar-SA-u-ca-gregory-nu-latn", {
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit"
+  }).format(new Date(isoDate));
+}
+
+function readSavedProjects() {
+  try {
+    const parsedProjects = JSON.parse(localStorage.getItem(PROJECTS_STORAGE_KEY) || "[]");
+    return Array.isArray(parsedProjects) ? parsedProjects.filter((project) => project && project.id && project.data) : [];
+  } catch (error) {
+    return [];
+  }
+}
+
+function persistProjects() {
+  localStorage.setItem(PROJECTS_STORAGE_KEY, JSON.stringify(savedProjects));
+  localStorage.setItem(ACTIVE_PROJECT_STORAGE_KEY, activeProjectId);
+}
+
+function getActiveProject() {
+  return savedProjects.find((project) => project.id === activeProjectId);
+}
+
+function applyProjectData(data) {
+  const nextData = {
+    ...JSON.parse(initialSnapshot),
+    ...cloneData(data)
+  };
+
+  Object.keys(quotationData).forEach((key) => delete quotationData[key]);
+  Object.assign(quotationData, nextData);
+  setQuotationDate(quotationData.dateIso);
+  datePickerMonthIso = quotationData.dateIso;
+}
+
+function createProject(data = JSON.parse(initialSnapshot), name = getProjectName(data)) {
+  const now = new Date().toISOString();
+
+  return {
+    id: createProjectId(),
+    name,
+    updatedAt: now,
+    data: cloneData(data)
+  };
+}
+
+function initializeProjects() {
+  savedProjects = readSavedProjects();
+  activeProjectId = localStorage.getItem(ACTIVE_PROJECT_STORAGE_KEY) || "";
+
+  if (!savedProjects.length) {
+    const firstProject = createProject(quotationData, getProjectName(quotationData));
+    savedProjects = [firstProject];
+    activeProjectId = firstProject.id;
+    persistProjects();
+    return;
+  }
+
+  if (!getActiveProject()) {
+    activeProjectId = savedProjects[0].id;
+  }
+
+  applyProjectData(getActiveProject().data);
+  persistProjects();
+}
+
+function saveActiveProject() {
+  const project = getActiveProject();
+
+  if (!project) {
+    return;
+  }
+
+  project.name = getProjectName();
+  project.updatedAt = new Date().toISOString();
+  project.data = cloneData(quotationData);
+  persistProjects();
+  renderProjectsPanel();
+}
+
+function createNewProject() {
+  saveActiveProject();
+
+  const nextProject = createProject(JSON.parse(initialSnapshot), "مشروع جديد");
+  savedProjects.unshift(nextProject);
+  activeProjectId = nextProject.id;
+  applyProjectData(nextProject.data);
+  persistProjects();
+  renderApp();
+}
+
+function duplicateActiveProject() {
+  const project = getActiveProject();
+
+  if (!project) {
+    return;
+  }
+
+  saveActiveProject();
+
+  const copy = createProject(project.data, `${project.name} - نسخة`);
+  savedProjects.unshift(copy);
+  activeProjectId = copy.id;
+  applyProjectData(copy.data);
+  persistProjects();
+  renderApp();
+}
+
+function deleteActiveProject() {
+  const project = getActiveProject();
+
+  if (!project || !window.confirm("هل تريد حذف المشروع الحالي؟")) {
+    return;
+  }
+
+  savedProjects = savedProjects.filter((savedProject) => savedProject.id !== project.id);
+
+  if (!savedProjects.length) {
+    const replacementProject = createProject(JSON.parse(initialSnapshot), "مشروع جديد");
+    savedProjects = [replacementProject];
+  }
+
+  activeProjectId = savedProjects[0].id;
+  applyProjectData(savedProjects[0].data);
+  persistProjects();
+  renderApp();
+}
+
+function switchProject(projectId) {
+  if (!projectId || projectId === activeProjectId) {
+    return;
+  }
+
+  saveActiveProject();
+  activeProjectId = projectId;
+  const project = getActiveProject();
+
+  if (!project) {
+    return;
+  }
+
+  applyProjectData(project.data);
+  persistProjects();
+  renderApp();
 }
 
 const scopeIconMap = {
@@ -443,6 +661,21 @@ function renderEditor() {
             `;
           }
 
+          if (type === "permit") {
+            const options = permitTypeOptions
+              .map((permit) => `<option value="${escapeHtml(permit.value)}" ${permit.value === quotationData[key] ? "selected" : ""}>${escapeHtml(permit.value)}</option>`)
+              .join("");
+
+            return `
+              <div class="field">
+                <label for="${key}">${label}</label>
+                <select id="${key}" data-key="${key}">
+                  ${options}
+                </select>
+              </div>
+            `;
+          }
+
           if (type === "money") {
             return `
               <div class="field">
@@ -516,6 +749,33 @@ function renderEditor() {
   `;
 }
 
+function renderProjectsPanel() {
+  if (!projectsList) {
+    return;
+  }
+
+  const projects = savedProjects
+    .map((project) => {
+      const activeClass = project.id === activeProjectId ? " is-active" : "";
+      const projectData = project.data || {};
+      const projectMeta = [
+        projectData.city,
+        projectData.district,
+        formatProjectUpdatedAt(project.updatedAt)
+      ].filter(Boolean).join(" • ");
+
+      return `
+        <button class="project-item${activeClass}" type="button" data-project-id="${escapeHtml(project.id)}">
+          <strong>${escapeHtml(project.name)}</strong>
+          <span>${escapeHtml(projectMeta)}</span>
+        </button>
+      `;
+    })
+    .join("");
+
+  projectsList.innerHTML = projects || `<p class="empty-projects">لا توجد مشاريع محفوظة بعد.</p>`;
+}
+
 function getProjectRows() {
   return [
     ["اسم العميل", quotationData.clientName],
@@ -587,7 +847,7 @@ function renderCover(totalPages) {
         </div>
         <section class="cover-title">
           <p class="kicker">${escapeHtml(quotationData.companyName)}</p>
-          <h2>عرض خدمات التصميم وإصدار رخصة بناء</h2>
+          <h2>${escapeHtml(getPermitTitle())}</h2>
           <p>${escapeHtml(quotationData.projectType)} — ${escapeHtml(quotationData.city)}</p>
         </section>
         <section class="cover-grid">
@@ -757,6 +1017,7 @@ function renderPreview() {
 function renderApp() {
   renderEditor();
   renderPreview();
+  renderProjectsPanel();
 }
 
 function showDatePicker() {
@@ -809,9 +1070,18 @@ function updateEditorValue(event) {
   }
 
   renderPreview();
+  saveActiveProject();
 }
 
 editorForm.addEventListener("input", updateEditorValue);
+
+projectsList.addEventListener("click", (event) => {
+  const projectButton = event.target.closest("[data-project-id]");
+
+  if (projectButton) {
+    switchProject(projectButton.dataset.projectId);
+  }
+});
 
 editorForm.addEventListener("click", (event) => {
   const dateInput = event.target.closest("[data-date-input]");
@@ -872,6 +1142,13 @@ resetBtn.addEventListener("click", () => {
   Object.assign(quotationData, defaults);
   datePickerMonthIso = quotationData.dateIso;
   renderApp();
+  saveActiveProject();
 });
 
+newProjectBtn.addEventListener("click", createNewProject);
+saveProjectBtn.addEventListener("click", saveActiveProject);
+duplicateProjectBtn.addEventListener("click", duplicateActiveProject);
+deleteProjectBtn.addEventListener("click", deleteActiveProject);
+
+initializeProjects();
 renderApp();
