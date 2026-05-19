@@ -9,6 +9,7 @@ const quotationData = {
   date: "17 مايو 2026",
   hijriDate: "",
   validityPeriod: "10 أيام",
+  clientTitle: "السيدة",
   clientName: "طاهره محمد أحمد بكرين",
   permitType: "إصدار رخصة بناء",
   projectType: "فيلا سكنية",
@@ -57,7 +58,7 @@ const quotationData = {
   paymentSchedule: [
     { percent: "50", label: "عند توقيع العقد" },
     { percent: "30", label: "بعد اعتماد التصميم المعماري" },
-    { percent: "20", label: "بعد تسليم المخططات الهندسية" }
+    { percent: "20", label: "بعد إصدار شهادة اعتماد التصاميم" }
   ],
   optionalAnnexNote: "هذه الخدمات اختيارية ولا تؤثر على قيمة العرض الأساسي، ويتم إضافتها فقط عند طلب العميل.",
   optionalServices: [
@@ -103,15 +104,19 @@ const editorForm = document.querySelector("#editorForm");
 const preview = document.querySelector("#preview");
 const pageCount = document.querySelector("#pageCount");
 const printBtn = document.querySelector("#printBtn");
+const shareWhatsappBtn = document.querySelector("#shareWhatsappBtn");
 const resetBtn = document.querySelector("#resetBtn");
 const projectsList = document.querySelector("#projectsList");
+const saveStatus = document.querySelector("#saveStatus");
 const newProjectBtn = document.querySelector("#newProjectBtn");
 const saveProjectBtn = document.querySelector("#saveProjectBtn");
 const duplicateProjectBtn = document.querySelector("#duplicateProjectBtn");
 const deleteProjectBtn = document.querySelector("#deleteProjectBtn");
+const zoomButtons = document.querySelectorAll("[data-preview-zoom]");
 
 const PROJECTS_STORAGE_KEY = "duralNafisQuotationProjects";
 const ACTIVE_PROJECT_STORAGE_KEY = "duralNafisActiveQuotationProject";
+const ORIGINAL_DOCUMENT_TITLE = document.title;
 
 const projectTypeOptions = [
   "فيلا سكنية",
@@ -164,10 +169,13 @@ const permitTypeOptions = [
   }
 ];
 
+const clientTitleOptions = ["السيد", "السيدة"];
+
 const fields = [
   {
     title: "بيانات العميل والعرض",
     items: [
+      ["clientTitle", "اللقب", "clientTitle"],
       ["clientName", "اسم العميل"],
       ["quotationNumber", "رقم العرض"],
       ["date", "التاريخ", "date"],
@@ -268,6 +276,7 @@ const initialSnapshot = JSON.stringify(quotationData);
 let datePickerMonthIso = quotationData.dateIso;
 let savedProjects = [];
 let activeProjectId = "";
+let previewZoom = "fit";
 
 function formatPercent(percent) {
   const value = String(percent).trim();
@@ -305,6 +314,29 @@ function formatRiyalAmount(value) {
   return amount ? `${formatMoneyAmount(amount)} ريال` : "";
 }
 
+function getOptionalServicePriceUnit(service) {
+  if (service.name.includes("فيديو")) {
+    return "ريال للدقيقة الواحدة";
+  }
+
+  if (service.name.includes("منظور")) {
+    return "ريال لكل منظور";
+  }
+
+  return "ريال";
+}
+
+function getOptionalServiceDisplayPrice(service) {
+  const unit = getOptionalServicePriceUnit(service);
+  const price = String(service.price || "");
+
+  if (unit === "ريال") {
+    return price;
+  }
+
+  return price.includes("ريال") ? price.replace("ريال", unit) : `${price} ${unit}`;
+}
+
 function getPaymentAmount(percent) {
   const subtotal = parseMoneyAmount(quotationData.mainPriceNumber) * (parseMoneyAmount(percent) / 100);
   const vat = subtotal * 0.15;
@@ -322,6 +354,79 @@ function getPermitTitle() {
   return selectedPermit ? selectedPermit.title : permitTypeOptions[0].title;
 }
 
+function getClientDisplayName(data = quotationData) {
+  return [data.clientTitle, data.clientName].filter(Boolean).join(" ");
+}
+
+function getSafeFilePart(value, fallback) {
+  const safeValue = String(value || "")
+    .trim()
+    .replace(/[<>:"/\\|?*\u0000-\u001f]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-");
+
+  return safeValue || fallback;
+}
+
+function getPdfFileName() {
+  const clientPart = getSafeFilePart(getClientDisplayName(quotationData), "عميل");
+  const quotationPart = getSafeFilePart(quotationData.quotationNumber, quotationData.dateIso || "عرض");
+  return `عرض-${clientPart}-${quotationPart}.pdf`;
+}
+
+function restorePrintTitle() {
+  document.title = ORIGINAL_DOCUMENT_TITLE;
+}
+
+function preparePrintTitle() {
+  document.title = getPdfFileName().replace(".pdf", "");
+  printBtn.setAttribute("title", `اسم ملف PDF المقترح: ${getPdfFileName()}`);
+}
+
+function buildWhatsAppShareText() {
+  return [
+    `${getPermitTitle()}`,
+    `العميل: ${getClientDisplayName(quotationData)}`,
+    `نوع المشروع: ${quotationData.projectType}`,
+    `الموقع: ${quotationData.district}، ${quotationData.city}`,
+    `رقم العرض: ${quotationData.quotationNumber}`,
+    `قيمة العرض: ${formatRiyalAmount(quotationData.mainPriceNumber)}`,
+    "يمكن حفظ العرض كملف PDF من محرر العروض وإرساله هنا."
+  ].join("\n");
+}
+
+function getWhatsAppShareUrl() {
+  return `https://wa.me/?text=${encodeURIComponent(buildWhatsAppShareText())}`;
+}
+
+function shareViaWhatsApp() {
+  window.open(getWhatsAppShareUrl(), "_blank", "noopener");
+}
+
+function formatSaveTimestamp(isoDate) {
+  if (!isoDate) {
+    return "لم يتم الحفظ بعد";
+  }
+
+  const formattedDate = new Intl.DateTimeFormat("ar-SA-u-ca-gregory-nu-latn", {
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit"
+  }).format(new Date(isoDate));
+
+  return `تم الحفظ ${formattedDate}`;
+}
+
+function renderSaveStatus() {
+  if (!saveStatus) {
+    return;
+  }
+
+  const project = getActiveProject();
+  saveStatus.textContent = formatSaveTimestamp(project?.updatedAt);
+}
+
 function cloneData(data) {
   return JSON.parse(JSON.stringify(data));
 }
@@ -331,7 +436,7 @@ function createProjectId() {
 }
 
 function getProjectName(data = quotationData) {
-  const client = String(data.clientName || "").trim();
+  const client = String(getClientDisplayName(data) || "").trim();
   const projectType = String(data.projectType || "").trim();
   const district = String(data.district || "").trim();
 
@@ -369,10 +474,27 @@ function getActiveProject() {
   return savedProjects.find((project) => project.id === activeProjectId);
 }
 
+function migrateProjectData(data) {
+  const migratedData = cloneData(data);
+
+  if (!migratedData.clientTitle) {
+    migratedData.clientTitle = "السيدة";
+  }
+
+  if (Array.isArray(migratedData.paymentSchedule)) {
+    migratedData.paymentSchedule = migratedData.paymentSchedule.map((payment) => ({
+      ...payment,
+      label: payment.label === "بعد تسليم المخططات الهندسية" ? "بعد إصدار شهادة اعتماد التصاميم" : payment.label
+    }));
+  }
+
+  return migratedData;
+}
+
 function applyProjectData(data) {
   const nextData = {
     ...JSON.parse(initialSnapshot),
-    ...cloneData(data)
+    ...migrateProjectData(data)
   };
 
   Object.keys(quotationData).forEach((key) => delete quotationData[key]);
@@ -388,7 +510,7 @@ function createProject(data = JSON.parse(initialSnapshot), name = getProjectName
     id: createProjectId(),
     name,
     updatedAt: now,
-    data: cloneData(data)
+    data: migrateProjectData(data)
   };
 }
 
@@ -676,6 +798,31 @@ function renderEditor() {
             `;
           }
 
+          if (type === "clientTitle") {
+            const options = clientTitleOptions
+              .map((option) => `<option value="${escapeHtml(option)}" ${option === quotationData[key] ? "selected" : ""}>${escapeHtml(option)}</option>`)
+              .join("");
+
+            return `
+              <div class="field client-name-row">
+                <div>
+                  <label for="${key}">${label}</label>
+                  <select id="${key}" data-key="${key}">
+                    ${options}
+                  </select>
+                </div>
+                <div>
+                  <label for="clientName">اسم العميل</label>
+                  <input id="clientName" data-key="clientName" type="text" value="${escapeHtml(quotationData.clientName)}">
+                </div>
+              </div>
+            `;
+          }
+
+          if (key === "clientName") {
+            return "";
+          }
+
           if (type === "money") {
             return `
               <div class="field">
@@ -713,7 +860,7 @@ function renderEditor() {
         ? `
           <div class="money-input-row">
             <input id="service-${index}" data-service-index="${index}" data-money-service-index="${index}" type="text" inputmode="decimal" value="${escapeHtml(servicePriceValue)}">
-            <span>ريال</span>
+            <span>${escapeHtml(getOptionalServicePriceUnit(service))}</span>
           </div>
         `
         : `<input id="service-${index}" data-service-index="${index}" type="text" value="${escapeHtml(service.price)}">`;
@@ -774,11 +921,12 @@ function renderProjectsPanel() {
     .join("");
 
   projectsList.innerHTML = projects || `<p class="empty-projects">لا توجد مشاريع محفوظة بعد.</p>`;
+  renderSaveStatus();
 }
 
 function getProjectRows() {
   return [
-    ["اسم العميل", quotationData.clientName],
+    ["اسم العميل", getClientDisplayName(quotationData)],
     ["نوع المشروع", quotationData.projectType],
     ["المدينة", quotationData.city],
     ["الحي", quotationData.district],
@@ -851,7 +999,7 @@ function renderCover(totalPages) {
           <p>${escapeHtml(quotationData.projectType)} — ${escapeHtml(quotationData.city)}</p>
         </section>
         <section class="cover-grid">
-          <div class="info-card"><span>العميل</span><strong>${escapeHtml(quotationData.clientName)}</strong></div>
+          <div class="info-card"><span>العميل</span><strong>${escapeHtml(getClientDisplayName(quotationData))}</strong></div>
           <div class="info-card"><span>موقع المشروع</span><strong>${escapeHtml(quotationData.district)}، ${escapeHtml(quotationData.city)}</strong></div>
           <div class="info-card"><span>مساحة الأرض</span><strong>${escapeHtml(quotationData.landArea)}</strong></div>
           <div class="info-card"><span>رقم العرض</span><strong>${escapeHtml(quotationData.quotationNumber)}</strong></div>
@@ -968,7 +1116,7 @@ function renderOptionalAnnex(totalPages) {
       <tr>
         <td>${escapeHtml(service.name)}</td>
         <td>${escapeHtml(service.description)}</td>
-        <td>${escapeHtml(service.price)}</td>
+        <td>${escapeHtml(getOptionalServiceDisplayPrice(service))}</td>
       </tr>
     `)
     .join("");
@@ -1012,6 +1160,39 @@ function renderPreview() {
 
   preview.innerHTML = pages.join("");
   pageCount.textContent = `${pages.length} صفحات`;
+  applyPreviewZoom();
+}
+
+function renderZoomControls() {
+  zoomButtons.forEach((button) => {
+    button.classList.toggle("is-active", button.dataset.previewZoom === previewZoom);
+  });
+}
+
+function applyPreviewZoom() {
+  const page = preview.querySelector(".page");
+  const shell = preview.closest(".preview-shell");
+
+  if (!page || !shell) {
+    return;
+  }
+
+  let scale = previewZoom === "75" ? 0.75 : 1;
+
+  if (previewZoom === "fit") {
+    preview.style.setProperty("--preview-zoom", "1");
+    const pageWidth = page.getBoundingClientRect().width;
+    const availableWidth = shell.clientWidth - 16;
+    scale = Math.min(1, Math.max(0.42, availableWidth / pageWidth));
+  }
+
+  preview.style.setProperty("--preview-zoom", String(scale));
+  renderZoomControls();
+}
+
+function setPreviewZoom(zoomMode) {
+  previewZoom = zoomMode;
+  applyPreviewZoom();
 }
 
 function renderApp() {
@@ -1133,8 +1314,13 @@ document.addEventListener("keydown", (event) => {
 });
 
 printBtn.addEventListener("click", () => {
+  preparePrintTitle();
   window.print();
 });
+
+window.addEventListener("afterprint", restorePrintTitle);
+
+shareWhatsappBtn.addEventListener("click", shareViaWhatsApp);
 
 resetBtn.addEventListener("click", () => {
   const defaults = JSON.parse(initialSnapshot);
@@ -1149,6 +1335,14 @@ newProjectBtn.addEventListener("click", createNewProject);
 saveProjectBtn.addEventListener("click", saveActiveProject);
 duplicateProjectBtn.addEventListener("click", duplicateActiveProject);
 deleteProjectBtn.addEventListener("click", deleteActiveProject);
+zoomButtons.forEach((button) => {
+  button.addEventListener("click", () => setPreviewZoom(button.dataset.previewZoom));
+});
+window.addEventListener("resize", () => {
+  if (previewZoom === "fit") {
+    applyPreviewZoom();
+  }
+});
 
 initializeProjects();
 renderApp();

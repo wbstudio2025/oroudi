@@ -60,6 +60,16 @@ test("print mode preserves the same A4 page geometry as preview", () => {
   assert.match(css, /@media print[\s\S]*\.page:last-child[\s\S]*margin-bottom:\s*-8mm/);
 });
 
+test("print image assets stay lightweight for fast PDF generation", () => {
+  const logoSize = fs.statSync(path.join(root, "assets", "LOGO.png")).size;
+  const footerSize = fs.statSync(path.join(root, "assets", "Footer.png")).size;
+  const signatureSize = fs.statSync(path.join(root, "assets", "Signature.png")).size;
+
+  assert.ok(logoSize <= 70000, `LOGO.png is ${logoSize} bytes`);
+  assert.ok(footerSize <= 70000, `Footer.png is ${footerSize} bytes`);
+  assert.ok(signatureSize <= 30000, `Signature.png is ${signatureSize} bytes`);
+});
+
 test("financial terms render as a simple list instead of rounded cards", () => {
   assert.match(css, /\.terms-list\s*{[\s\S]*list-style:\s*none/);
   assert.match(css, /\.terms-list li::before\s*{[\s\S]*content:\s*""/);
@@ -83,6 +93,8 @@ test("payment percentages are editable from the editor form", () => {
   assert.match(app, /const paymentIndex = input\.dataset\.paymentIndex/);
   assert.match(app, /quotationData\.paymentSchedule\[Number\(paymentIndex\)\]\.percent = input\.value/);
   assert.match(app, /function formatPercent\(percent\)/);
+  assert.match(app, /بعد إصدار شهادة اعتماد التصاميم/);
+  assert.match(app, /payment\.label === "بعد تسليم المخططات الهندسية" \? "بعد إصدار شهادة اعتماد التصاميم" : payment\.label/);
 });
 
 test("final page includes a Saudi-appropriate closing note and signature image", () => {
@@ -116,6 +128,27 @@ test("quotation date uses a popup Gregorian calendar with faded Hijri dates", ()
   assert.match(app, /setQuotationDate\(dateChoice\.dataset\.dateChoice\)/);
   assert.match(css, /\.date-picker\s*{/);
   assert.match(css, /\.hijri-day\s*{[\s\S]*opacity:\s*0\.48/);
+});
+
+test("client name has a السيد السيدة title dropdown used in output", () => {
+  assert.match(app, /clientTitle:\s*"السيدة"/);
+  assert.match(app, /const clientTitleOptions\s*=\s*\["السيد", "السيدة"\]/);
+  assert.match(app, /\["clientTitle", "اللقب", "clientTitle"\]/);
+  assert.match(app, /function getClientDisplayName/);
+  assert.match(app, /getClientDisplayName\(quotationData\)/);
+  assert.match(app, /class="field client-name-row"/);
+  assert.match(app, /السيد/);
+  assert.match(app, /السيدة/);
+  assert.match(css, /\.client-name-row\s*{/);
+});
+
+test("optional service money fields show contextual Riyal units", () => {
+  assert.match(app, /function getOptionalServicePriceUnit/);
+  assert.match(app, /function getOptionalServiceDisplayPrice/);
+  assert.match(app, /ريال لكل منظور/);
+  assert.match(app, /ريال للدقيقة الواحدة/);
+  assert.match(app, /getOptionalServicePriceUnit\(service\)/);
+  assert.match(app, /getOptionalServiceDisplayPrice\(service\)/);
 });
 
 test("desktop workspace uses projects right preview center and inputs left", () => {
@@ -157,4 +190,35 @@ test("cover title is driven by a permit type dropdown", () => {
   assert.match(app, /function getPermitTitle\(\)/);
   assert.match(app, /<h2>\$\{escapeHtml\(getPermitTitle\(\)\)\}<\/h2>/);
   assert.doesNotMatch(app, /<h2>عرض خدمات التصميم وإصدار رخصة بناء<\/h2>/);
+});
+
+test("project tools include save status without JSON import export controls", () => {
+  assert.match(html, /id="saveStatus"/);
+  assert.match(app, /function renderSaveStatus\(\)/);
+  assert.match(css, /\.save-status\s*{/);
+  assert.doesNotMatch(html, /تصدير JSON|استيراد JSON|id="exportProjectsBtn"|id="importProjectsInput"/);
+  assert.doesNotMatch(app, /function exportProjects\(\)|function importProjectsFromFile|exportProjectsBtn|importProjectsInput/);
+});
+
+test("print and sharing helpers generate filenames and WhatsApp links", () => {
+  assert.match(html, /id="shareWhatsappBtn"/);
+  assert.match(app, /function getPdfFileName\(\)/);
+  assert.match(app, /function preparePrintTitle\(\)/);
+  assert.match(app, /document\.title = getPdfFileName\(\)\.replace\("\.pdf", ""\)/);
+  assert.match(app, /function buildWhatsAppShareText\(\)/);
+  assert.match(app, /function getWhatsAppShareUrl\(\)/);
+  assert.match(app, /https:\/\/wa\.me\/\?text=/);
+  assert.match(app, /shareWhatsappBtn\.addEventListener\("click", shareViaWhatsApp\)/);
+});
+
+test("preview toolbar exposes fit 100 and 75 zoom controls", () => {
+  assert.match(html, /data-preview-zoom="fit"/);
+  assert.match(html, /data-preview-zoom="100"/);
+  assert.match(html, /data-preview-zoom="75"/);
+  assert.match(app, /let previewZoom = "fit"/);
+  assert.match(app, /function setPreviewZoom\(zoomMode\)/);
+  assert.match(app, /function applyPreviewZoom\(\)/);
+  assert.match(css, /\.zoom-controls\s*{/);
+  assert.match(css, /\.preview\s*{[\s\S]*zoom:\s*var\(--preview-zoom, 1\)/);
+  assert.match(css, /@media print[\s\S]*\.preview\s*{[\s\S]*zoom:\s*1 !important/);
 });
