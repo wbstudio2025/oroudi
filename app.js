@@ -9,7 +9,7 @@ const quotationData = {
   date: "17 مايو 2026",
   hijriDate: "",
   validityPeriod: "10 أيام",
-  clientTitle: "السيدة",
+  clientTitle: "السيد",
   clientName: "",
   permitType: "إصدار رخصة بناء",
   projectType: "فيلا سكنية",
@@ -532,7 +532,7 @@ function migrateProjectData(data) {
   const migratedData = cloneData(data);
 
   if (!migratedData.clientTitle) {
-    migratedData.clientTitle = "السيدة";
+    migratedData.clientTitle = "السيد";
   }
 
   if (Array.isArray(migratedData.paymentSchedule)) {

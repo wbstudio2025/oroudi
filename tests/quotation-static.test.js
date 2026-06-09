@@ -133,7 +133,7 @@ test("quotation date uses a popup Gregorian calendar with faded Hijri dates", ()
 });
 
 test("client name has a السيد السيدة title dropdown used in output", () => {
-  assert.match(app, /clientTitle:\s*"السيدة"/);
+  assert.match(app, /clientTitle:\s*"السيد"/);
   assert.match(app, /const clientTitleOptions\s*=\s*\["السيد", "السيدة"\]/);
   assert.match(app, /\["clientTitle", "اللقب", "clientTitle"\]/);
   assert.match(app, /function getClientDisplayName/);
