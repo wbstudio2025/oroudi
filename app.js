@@ -220,8 +220,7 @@ const fields = [
     items: [
       ["mainPriceNumber", "قيمة العرض", "money"],
       ["mainPriceWritten", "قيمة العرض كتابة"],
-      ["notes", "ملاحظات", "textarea"],
-      ["showOptionalAnnex", "إظهار ملحق الخدمات الاختيارية", "checkbox"]
+      ["notes", "ملاحظات", "textarea"]
     ]
   }
 ];
@@ -1015,6 +1014,10 @@ function renderEditor() {
     </section>
     <section class="form-group">
       <h3>أسعار الخدمات الاختيارية</h3>
+      <div class="field toggle-field">
+        <label for="showOptionalAnnex">إظهار ملحق الخدمات الاختيارية</label>
+        <input id="showOptionalAnnex" data-key="showOptionalAnnex" type="checkbox" ${quotationData.showOptionalAnnex ? "checked" : ""}>
+      </div>
       ${optionalServiceInputs}
     </section>
   `;
