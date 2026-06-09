@@ -4,7 +4,8 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>محرر عروض الأسعار | الدر النفيس</title>
-    <link rel="stylesheet" href="styles.css?v=project-workspace">
+    <link rel="icon" href="assets/app-icon.ico">
+    <link rel="stylesheet" href="styles.css?v=v4">
   </head>
   <body>
     <header class="app-header">
@@ -63,6 +64,7 @@
             <button class="zoom-btn" type="button" data-preview-zoom="100">100%</button>
             <button class="zoom-btn" type="button" data-preview-zoom="75">75%</button>
           </div>
+          <span id="overflowWarning" class="overflow-warning" role="alert" hidden></span>
         </div>
         <div id="preview" class="preview"></div>
       </section>
@@ -83,9 +85,17 @@
         </div>
         <div id="projectsList" class="projects-list" aria-live="polite"></div>
         <button id="deleteProjectBtn" class="danger-btn" type="button">حذف المشروع الحالي</button>
+
+        <div class="backup-block">
+          <h3>النسخ الاحتياطي</h3>
+          <p id="backupStatus" class="backup-status" data-state="off" aria-live="polite">النسخ الاحتياطي التلقائي غير مُفعّل</p>
+          <button id="enableBackupBtn" class="primary-btn" type="button">تفعيل النسخ الاحتياطي التلقائي</button>
+          <button id="backupNowBtn" class="secondary-btn" type="button">نسخ احتياطي الآن</button>
+          <button id="restoreBackupBtn" class="secondary-btn" type="button">استعادة من ملف</button>
+        </div>
       </aside>
     </main>
 
-    <script src="app.js?v=sharing-tools"></script>
+    <script src="app.js?v=v4"></script>
   </body>
 </html>

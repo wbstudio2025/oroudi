@@ -66,7 +66,9 @@ test("print image assets stay lightweight for fast PDF generation", () => {
   const signatureSize = fs.statSync(path.join(root, "assets", "Signature.png")).size;
 
   assert.ok(logoSize <= 70000, `LOGO.png is ${logoSize} bytes`);
-  assert.ok(footerSize <= 70000, `Footer.png is ${footerSize} bytes`);
+  // Footer now carries a QR code (added with the address correction), so it is larger than
+  // before but still well within "lightweight" for a once-per-page embedded image.
+  assert.ok(footerSize <= 80000, `Footer.png is ${footerSize} bytes`);
   assert.ok(signatureSize <= 30000, `Signature.png is ${signatureSize} bytes`);
 });
 
@@ -120,12 +122,12 @@ test("quotation date uses a popup Gregorian calendar with faded Hijri dates", ()
   assert.match(app, /hijriDate:/);
   assert.match(app, /\["date",\s*"التاريخ",\s*"date"\]/);
   assert.match(app, /function formatHijriDate\(isoDate\)/);
-  assert.match(app, /function renderDatePicker\(\)/);
+  assert.match(app, /function renderDatePicker\(field\)/);
   assert.match(app, /data-date-choice="\$\{isoDate\}"/);
   assert.match(app, /class="hijri-day"/);
   assert.match(app, /class="inline-hijri-date"/);
   assert.match(app, /class="date-hijri"/);
-  assert.match(app, /setQuotationDate\(dateChoice\.dataset\.dateChoice\)/);
+  assert.match(app, /dateFieldConfig\[field\]\.apply\(dateChoice\.dataset\.dateChoice\)/);
   assert.match(css, /\.date-picker\s*{/);
   assert.match(css, /\.hijri-day\s*{[\s\S]*opacity:\s*0\.48/);
 });
@@ -221,4 +223,129 @@ test("preview toolbar exposes fit 100 and 75 zoom controls", () => {
   assert.match(css, /\.zoom-controls\s*{/);
   assert.match(css, /\.preview\s*{[\s\S]*zoom:\s*var\(--preview-zoom, 1\)/);
   assert.match(css, /@media print[\s\S]*\.preview\s*{[\s\S]*zoom:\s*1 !important/);
+});
+
+test("pages grow instead of clipping, with an overflow warning", () => {
+  // the silent clip (fixed height + overflow:hidden) must be gone
+  assert.doesNotMatch(css, /\.page\s*{[^}]*overflow:\s*hidden/);
+  assert.match(css, /\.page\s*{[\s\S]*min-height:\s*297mm/);
+  assert.match(css, /\.page\.is-overflowing/);
+  assert.match(css, /\.overflow-warning\s*{/);
+  assert.match(html, /id="overflowWarning"/);
+  assert.match(app, /function flagPageOverflow\(\)/);
+  assert.match(app, /const a4Ratio = 297 \/ 210/);
+  assert.match(app, /classList\.toggle\("is-overflowing"/);
+  assert.match(app, /flagPageOverflow\(\);\s*\n}/); // called at end of renderPreview
+});
+
+test("all projects are backed up to a file with automatic and manual paths", () => {
+  assert.match(html, /id="backupStatus"/);
+  assert.match(html, /id="enableBackupBtn"/);
+  assert.match(html, /id="backupNowBtn"/);
+  assert.match(html, /id="restoreBackupBtn"/);
+  assert.match(css, /\.backup-block\s*{/);
+  // primary path: File System Access API, persisted via IndexedDB
+  assert.match(app, /window\.showSaveFilePicker/);
+  assert.match(app, /window\.showOpenFilePicker/);
+  assert.match(app, /indexedDB\.open\(BACKUP_DB_NAME/);
+  assert.match(app, /function scheduleBackup\(\)/);
+  assert.match(app, /function buildBackupPayload\(\)/);
+  // auto-backup is wired into the single persistence choke-point
+  assert.match(app, /function persistProjects\(\)[\s\S]*scheduleBackup\(\);/);
+  // graceful manual fallback when the API is unavailable
+  assert.match(app, /function downloadBackup\(\)/);
+  assert.match(app, /function restoreBackup\(\)/);
+  assert.match(app, /const supportsFsAccess = typeof window\.showSaveFilePicker === "function"/);
+});
+
+test("premium Cairo font is bundled and self-hosted for offline use", () => {
+  assert.match(css, /@font-face\s*{[\s\S]*font-family:\s*"Cairo"/);
+  assert.match(css, /url\("assets\/fonts\/cairo-arabic\.woff2"\)/);
+  assert.match(css, /url\("assets\/fonts\/cairo-latin\.woff2"\)/);
+  assert.match(css, /font-weight:\s*400 900/);
+  // body still prefers Cairo, with safe fallbacks
+  assert.match(css, /font-family:\s*"Cairo",\s*"Tajawal"/);
+
+  ["cairo-arabic.woff2", "cairo-latin-ext.woff2", "cairo-latin.woff2"].forEach((file) => {
+    const fontPath = path.join(root, "assets", "fonts", file);
+    assert.ok(fs.existsSync(fontPath), `missing ${file}`);
+    const header = fs.readFileSync(fontPath).subarray(0, 4).toString("latin1");
+    assert.equal(header, "wOF2", `${file} is not a valid woff2`);
+  });
+});
+
+test("Windows install scaffolding launches an Edge app window from a local server", () => {
+  ["server.ps1", "launch.vbs", "setup.bat", "setup.ps1", "INSTALL.md"].forEach((file) => {
+    assert.ok(fs.existsSync(path.join(root, file)), `missing ${file}`);
+  });
+  assert.ok(fs.existsSync(path.join(root, "assets", "app-icon.ico")), "missing app-icon.ico");
+  assert.match(html, /rel="icon"/);
+
+  const server = fs.readFileSync(path.join(root, "server.ps1"), "utf8");
+  assert.match(server, /TcpListener/); // runtime-free, no Node/Python needed
+  assert.match(server, /Loopback/); // binds to localhost only
+
+  const vbs = fs.readFileSync(path.join(root, "launch.vbs"), "utf8");
+  assert.match(vbs, /port = "8137"/);
+  assert.match(vbs, /"http:\/\/127\.0\.0\.1:" & port/); // localhost origin
+  assert.match(vbs, /--app=" & baseUrl/); // Edge app mode
+  assert.match(vbs, /msedge\.exe/);
+});
+
+test("scope of work is an editable checklist (toggle + add + remove) in the editor", () => {
+  // data model: scope items are { name, enabled } objects, enabled by default
+  assert.match(app, /name:\s*"رفع مساحي",\s*enabled:\s*true/);
+  // editor renders a checkbox + remove button per item and an add row per group
+  assert.match(app, /data-scope-group="\$\{groupIndex\}"\s+data-scope-item="\$\{itemIndex\}"/);
+  assert.match(app, /data-scope-remove=/);
+  assert.match(app, /data-scope-add-input="\$\{groupIndex\}"/);
+  assert.match(app, /data-scope-add="\$\{groupIndex\}"/);
+  assert.match(app, /function addScopeItem\(/);
+  assert.match(app, /function removeScopeItem\(/);
+  // toggling a checkbox updates enabled; preview renders only enabled items
+  assert.match(app, /\.items\[Number\(input\.dataset\.scopeItem\)\]\.enabled = input\.checked/);
+  assert.match(app, /group\.items\.filter\(\(item\) => item\.enabled !== false\)/);
+  // legacy string items migrate to { name, enabled }
+  assert.match(app, /typeof item === "string"[\s\S]*?\{ name: item, enabled: true \}/);
+  // Enter in an add field must not reload the page
+  assert.match(app, /editorForm\.addEventListener\("submit"/);
+  assert.match(css, /\.scope-check-row\s*{/);
+  assert.match(css, /\.scope-add\s*{/);
+});
+
+test("area and validity inputs auto-append fixed unit suffixes", () => {
+  assert.match(app, /\["landArea", "مساحة الأرض", "unit:م²"\]/);
+  assert.match(app, /\["validityPeriod", "مدة صلاحية العرض", "unit:أيام"\]/);
+  assert.match(app, /if \(type\.startsWith\("unit:"\)\)/);
+  assert.match(app, /quotationData\[key\] = sanitized \? `\$\{sanitized\} \$\{input\.dataset\.unit\}` : ""/);
+});
+
+test("deed date opens the same calendar as the quotation date", () => {
+  assert.match(app, /\["deedDate", "تاريخ الصك", "date"\]/);
+  assert.match(app, /function setDeedDate\(isoDate\)/);
+  assert.match(app, /const dateFieldConfig = \{/);
+  assert.match(app, /deed: \{ isoKey: "deedDateIso"/);
+  assert.match(app, /function dateFieldFor\(key\)/);
+  assert.match(app, /data-date-field="\$\{field\}"/);
+});
+
+test("notes preserve line breaks in the printed document", () => {
+  assert.match(css, /\.note\s*{[\s\S]*white-space:\s*pre-wrap/);
+});
+
+test("default data is faded placeholders, not real client info", () => {
+  assert.match(app, /clientName: "",/);
+  assert.match(app, /deedNumber: "",/);
+  assert.match(app, /mainPriceNumber: "",/);
+  assert.match(app, /function ph\(value, placeholder\)/);
+  assert.match(app, /class="doc-placeholder"/);
+  assert.match(css, /\.doc-placeholder\s*{/);
+  assert.doesNotMatch(app, /clientName: "طاهره/); // no real client baked into defaults
+});
+
+test("last page drops the footer and ends with the signature", () => {
+  assert.match(app, /function pageShell\(title, body, pageNumber, totalPages, isLast = false\)/);
+  assert.match(app, /\$\{isLast \? "" : renderFooter\(pageNumber, totalPages\)\}/);
+  assert.match(app, /!quotationData\.showOptionalAnnex/); // financial is last only when annex hidden
+  assert.match(css, /\.page\.is-last-page \.closing-block\s*{[\s\S]*margin-top:\s*auto/);
 });

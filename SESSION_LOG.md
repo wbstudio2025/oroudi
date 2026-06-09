@@ -58,3 +58,59 @@ Current uncommitted changes:
 - WhatsApp sharing opens a prepared `wa.me` message. A browser page cannot attach the locally printed PDF automatically, so the PDF should be attached manually in WhatsApp after saving.
 - The app should be opened through the local server URL for the freshest assets:
   `http://127.0.0.1:8080/index.html`
+
+# Session Log - 2026-06-09
+
+## Project
+
+Dural Nafis Quotation Editor V1 — hardening + making it installable for a secretary's Windows laptop.
+
+## Completed Work
+
+- **Stability:** removed the silent A4 overflow clip (`.page` was fixed `height:297mm; overflow:hidden`).
+  Pages now use `min-height` and grow instead of clipping; `flagPageOverflow()` flags any page taller
+  than the A4 ratio and shows a red toolbar warning (`#overflowWarning`).
+- **Automatic backup:** all projects are written to a file the user picks via the File System Access
+  API (handle persisted in IndexedDB), debounced on every change + flushed on window hide. Manual
+  "نسخ احتياطي الآن" / "استعادة من ملف" with download/upload fallback when the API is unavailable.
+- **Bundled font:** self-hosted Cairo (variable, 3 woff2 subsets in `assets/fonts/`) via `@font-face`,
+  so the premium look works offline instead of falling back to Tahoma.
+- **Installable launcher (no runtime needed):** `server.ps1` (built-in-PowerShell TcpListener static
+  server on `127.0.0.1:8137`, idle self-shutdown), `launch.vbs` (starts server hidden + opens Edge
+  `--app`), `setup.bat`/`setup.ps1` (Desktop + Start Menu shortcuts), `assets/app-icon.ico` + favicon.
+  Localhost (not file://) gives a stable origin and the secure context the silent backup requires.
+- Updated `README.md`, added `INSTALL.md`, raised the footer asset size test threshold.
+- **Editable scope of work:** `scopeGroups[].items` changed from strings to `{ name, enabled }`.
+  The editor now shows each scope item as a checkbox (all enabled by default) with a remove (×)
+  button and a per-group "add item" field; the preview renders only enabled items. Legacy string
+  items are migrated. Also added a form `submit` guard so Enter in a field no longer reloads.
+- **Five field/print corrections:** (1) area/validity inputs auto-append fixed unit suffixes
+  (`م²` / `أيام`) via a `unit:` field type — user types the number only; (2) the deed date now
+  opens the same calendar as the quotation date (picker generalized via `dateFieldConfig`; the deed
+  shows Hijri primary + Gregorian faded, stored in new `deedDateIso`/`deedGregorian`); (3) notes
+  keep their line breaks in the PDF (`.note { white-space: pre-wrap }`); (4) default data is now
+  empty → renders faded `.doc-placeholder` hints (via `ph()`) and grey input placeholders instead
+  of a real past client's name/deed; (5) the last page drops the footer and ends with the
+  signature (`pageShell(..., isLast)`), and the annex-off layout is correct (financial becomes the
+  clean last page). All verified live; 29 tests pass.
+
+## Verification Performed
+
+- `node tests/quotation-static.test.js` — 23 tests pass (added overflow / backup / Cairo / install
+  coverage; updated the print-geometry and footer-size assertions intentionally).
+- Browser checks (preview MCP over localhost): default data renders 6 A4 pages with no false overflow
+  warning; injected long content correctly triggers the warning; Cairo loads; backup payload, IndexedDB
+  round-trip, and restore validation all verified; no console errors.
+- `server.ps1` verified with HTTP probes: correct status codes, 404 handling, byte-perfect binary
+  serving (woff2 / PNG sizes match disk). Edge located at the expected path; shortcut creation verified.
+
+## Notes
+
+- `assets/Footer.png` changed on disk during the session (66,282 → 75,421 bytes) — an intentional
+  update synced via OneDrive: it now carries a QR code and a corrected address (مركز العـواد / office
+  402). Not reverted.
+- Outstanding (owner deferred): which Saudi-market fields to add (VAT number الرقم الضريبي + VAT-inclusive
+  grand total, bank IBAN, engineering accreditation, auto "valid until") and the values for them.
+  Footer already shows CR / address / contacts, so those are excluded.
+- The browser screenshot tool hung all session (renderer issue, not the app); verification used eval +
+  accessibility snapshot + tests instead.
