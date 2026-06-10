@@ -554,6 +554,62 @@ textarea {
   box-shadow: none;
 }
 
+.email-input-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.email-input-row input {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  text-align: start;
+}
+
+.email-input-row input:focus {
+  box-shadow: none;
+}
+
+.email-input-row:focus-within {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px rgba(185, 150, 80, 0.16);
+}
+
+.email-send-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  align-self: stretch;
+  width: 42px;
+  border: 0;
+  border-inline-start: 1px solid var(--line);
+  background: #f1f2f4;
+  color: var(--charcoal);
+  cursor: pointer;
+  transition: background 0.18s ease, color 0.18s ease;
+}
+
+.email-send-btn:hover {
+  background: #e2e4e8;
+  color: var(--ink);
+}
+
+.email-send-btn svg {
+  width: 17px;
+  height: 17px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 .field textarea {
   min-height: 92px;
   resize: vertical;
@@ -710,6 +766,24 @@ textarea {
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 8px;
   margin-top: 10px;
+}
+
+.reset-defaults-btn {
+  margin-top: 12px;
+  padding: 6px 12px;
+  width: 100%;
+  background: transparent;
+  border: 1px dashed var(--line);
+  border-radius: 6px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.reset-defaults-btn:hover {
+  border-color: var(--ink-light);
+  color: var(--ink);
 }
 
 .scope-add-row input {
@@ -1077,6 +1151,10 @@ textarea {
   background: #fff;
   font-size: 12px;
   font-weight: 900;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
 }
 
 .cover-title {
@@ -1127,6 +1205,7 @@ textarea {
 
 .info-card {
   padding: 13px 14px;
+  text-align: center;
 }
 
 .info-card span {

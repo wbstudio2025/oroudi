@@ -82,6 +82,8 @@ const quotationData = {
   validityPeriod: "10 أيام",
   clientTitle: "السيد",
   clientName: "",
+  clientPhone: "",
+  clientEmail: "",
   permitType: "إصدار رخصة بناء",
   projectType: "فيلا سكنية",
   city: "",
@@ -97,7 +99,7 @@ const quotationData = {
   mainPriceWritten: "",
   mainPriceWrittenManual: false,
   bilingual: false,
-  notes: "يشمل العرض منظوراً خارجياً واحداً فقط للواجهة الرئيسية. أي مناظير إضافية أو خدمات تصميم داخلي يتم تسعيرها ضمن الخدمات الاختيارية.",
+  notes: "",
   showOptionalAnnex: true,
   showDeliverables: true,
   scopeGroups: [
@@ -194,7 +196,6 @@ const pageCount = document.querySelector("#pageCount");
 const overflowWarning = document.querySelector("#overflowWarning");
 const printBtn = document.querySelector("#printBtn");
 const shareWhatsappBtn = document.querySelector("#shareWhatsappBtn");
-const resetBtn = document.querySelector("#resetBtn");
 const projectsList = document.querySelector("#projectsList");
 const saveStatus = document.querySelector("#saveStatus");
 const newProjectBtn = document.querySelector("#newProjectBtn");
@@ -205,7 +206,6 @@ const backupStatusEl = document.querySelector("#backupStatus");
 const enableBackupBtn = document.querySelector("#enableBackupBtn");
 const backupNowBtn = document.querySelector("#backupNowBtn");
 const restoreBackupBtn = document.querySelector("#restoreBackupBtn");
-const zoomButtons = document.querySelectorAll("[data-preview-zoom]");
 const loginOverlay = document.querySelector("#loginOverlay");
 const loginForm = document.querySelector("#loginForm");
 const loginEmail = document.querySelector("#loginEmail");
@@ -290,6 +290,8 @@ const fields = [
     items: [
       ["clientTitle", "اللقب", "clientTitle"],
       ["clientName", "اسم العميل"],
+      ["clientPhone", "رقم الجوال"],
+      ["clientEmail", "البريد الإلكتروني", "email"],
       ["quotationNumber", "رقم العرض"],
       ["date", "التاريخ", "date"],
       ["validityPeriod", "مدة صلاحية العرض", "unit:أيام"],
@@ -416,7 +418,6 @@ const datePickerMonths = {
 };
 let savedProjects = [];
 let activeProjectId = "";
-let previewZoom = "fit";
 
 function formatPercent(percent) {
   const value = String(percent).trim();
@@ -547,6 +548,59 @@ function getWhatsAppShareUrl() {
 
 function shareViaWhatsApp() {
   window.open(getWhatsAppShareUrl(), "_blank", "noopener");
+}
+
+// No mail server is required: a mailto link opens the user's own mail client with the
+// recipient, subject and a formal Arabic body pre-filled from the quotation, so the
+// secretary only needs to attach the saved PDF and hit send.
+function buildEmailSubject() {
+  const number = quotationData.quotationNumber ? ` — عرض رقم ${quotationData.quotationNumber}` : "";
+  return `${getPermitTitle()}${number}`;
+}
+
+function buildEmailBody() {
+  const recipient = getClientDisplayName(quotationData).trim();
+  const location = [quotationData.district, quotationData.city].filter(Boolean).join("، ");
+
+  return [
+    recipient ? `الفاضل/ ${recipient}،` : "السادة الأفاضل،",
+    "",
+    `يسرّ ${brandProfile.companyName} أن تقدّم لكم عرض السعر التالي:`,
+    "",
+    `• ${getPermitTitle()}`,
+    quotationData.projectType && `• نوع المشروع: ${quotationData.projectType}`,
+    location && `• الموقع: ${location}`,
+    quotationData.quotationNumber && `• رقم العرض: ${quotationData.quotationNumber}`,
+    quotationData.mainPriceNumber && `• قيمة العرض: ${formatRiyalAmount(quotationData.mainPriceNumber)}`,
+    quotationData.validityPeriod && `• مدة صلاحية العرض: ${quotationData.validityPeriod}`,
+    "",
+    "نرفق لكم العرض التفصيلي بصيغة PDF.",
+    "",
+    "وتفضلوا بقبول فائق الاحترام،",
+    brandProfile.companyName
+  ].filter((line) => line !== false && line !== undefined).join("\n");
+}
+
+function getMailtoUrl() {
+  const to = encodeURIComponent(String(quotationData.clientEmail || "").trim());
+  const subject = encodeURIComponent(buildEmailSubject());
+  const body = encodeURIComponent(buildEmailBody());
+  return `mailto:${to}?subject=${subject}&body=${body}`;
+}
+
+function sendQuotationEmail() {
+  const emailInput = editorForm.querySelector("#clientEmail");
+
+  if (!String(quotationData.clientEmail || "").trim()) {
+    if (emailInput) {
+      emailInput.focus();
+    }
+    return;
+  }
+
+  const anchor = document.createElement("a");
+  anchor.href = getMailtoUrl();
+  anchor.click();
 }
 
 function formatSaveTimestamp(isoDate) {
@@ -1382,6 +1436,23 @@ function renderEditor() {
             `;
           }
 
+          if (type === "email") {
+            return `
+              <div class="field">
+                <label for="${key}">${label}</label>
+                <div class="email-input-row">
+                  <input id="${key}" data-key="${key}" type="email" inputmode="email" placeholder="${escapeHtml(label)}" value="${escapeHtml(quotationData[key])}">
+                  <button type="button" class="email-send-btn" data-email-send title="إرسال العرض إلى العميل بالبريد الإلكتروني" aria-label="إرسال العرض إلى العميل بالبريد الإلكتروني">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M22 2 11 13"/>
+                      <path d="M22 2 15 22l-4-9-9-4 20-7z"/>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            `;
+          }
+
           return `
             <div class="field">
               <label for="${key}">${label}</label>
@@ -1507,6 +1578,7 @@ function renderEditor() {
       <h3>نطاق الأعمال</h3>
       <p class="scope-hint">البنود المحددة تظهر في العرض. أزِل التحديد لإخفاء بند دون حذفه، أو أضِف بنوداً جديدة.</p>
       ${scopeGroupsInputs}
+      <button type="button" class="reset-defaults-btn" data-reset-scope>إعادة تعبئة القائمة الافتراضية</button>
     </section>
     <section class="form-group scope-editor">
       <div class="section-header-toggle">
@@ -1521,6 +1593,7 @@ function renderEditor() {
         <input type="text" data-deliverable-add-input placeholder="إضافة مخرج جديد…" aria-label="إضافة مخرج جديد">
         <button type="button" class="scope-add" data-deliverable-add>إضافة</button>
       </div>
+      <button type="button" class="reset-defaults-btn" data-reset-deliverables>إعادة تعبئة القائمة الافتراضية</button>
     </section>
     <section class="form-group">
       <h3>العرض المالي والملاحظات</h3>
@@ -1645,6 +1718,7 @@ function renderProjectsPanel() {
 function getProjectRows() {
   return [
     ["اسم العميل", quotationData.clientName ? getClientDisplayName(quotationData) : ""],
+    ["رقم الجوال", quotationData.clientPhone],
     ["نوع المشروع", quotationData.projectType],
     ["المدينة", quotationData.city],
     ["الحي", quotationData.district],
@@ -1768,7 +1842,7 @@ function renderCover(totalPages) {
         </section>
         <section class="cover-grid">
           <div class="info-card"><span>العميل</span><strong>${ph(quotationData.clientName ? getClientDisplayName(quotationData) : "", "اسم العميل")}</strong></div>
-          <div class="info-card"><span>موقع المشروع</span><strong>${ph(quotationData.district, "الحي")}، ${ph(quotationData.city, "المدينة")}</strong></div>
+          <div class="info-card"><span>موقع المشروع</span><strong>${quotationData.district ? `${escapeHtml(quotationData.district)}، ${ph(quotationData.city, "المدينة")}` : ph(quotationData.city, "المدينة")}</strong></div>
           <div class="info-card"><span>مساحة الأرض</span><strong>${ph(quotationData.landArea, "مساحة الأرض")}</strong></div>
           <div class="info-card"><span>رقم العرض</span><strong>${ph(quotationData.quotationNumber, "رقم العرض")}</strong></div>
           <div class="info-card"><span>التاريخ</span><strong>${escapeHtml(quotationData.date)}</strong><em class="date-hijri">${escapeHtml(quotationData.hijriDate)}</em></div>
@@ -1841,7 +1915,7 @@ function renderDeliverables(totalPages) {
           .map((item) => `<li class="deliverable"><span class="check">✓</span><div><span>${escapeHtml(item.name)}</span>${item.description ? `<small class="scope-description">${escapeHtml(item.description)}</small>` : ""}</div></li>`)
           .join("")}
       </ul>
-      <div class="note">${escapeHtml(quotationData.notes)}</div>
+      ${quotationData.notes.trim() ? `<div class="note">${escapeHtml(quotationData.notes)}</div>` : ""}
     `,
     4,
     totalPages
@@ -1882,7 +1956,6 @@ function renderFinancial(totalPages) {
       <div class="grand-total-row">
         <span>الإجمالي شامل ضريبة القيمة المضافة 15%</span>
         <strong>${formatMoneyAmount(grandTotal)} ريال</strong>
-        ${grandTotalWords ? `<em>${escapeHtml(grandTotalWords)}</em>` : ""}
       </div>
     `
     : "";
@@ -1899,7 +1972,7 @@ function renderFinancial(totalPages) {
       <ul class="terms-list">
         ${terms.map((term) => `<li>${escapeHtml(term)}</li>`).join("")}
       </ul>
-      <h3 class="scope-heading"><span>٪</span>جدول الدفعات + الضريبة 15%</h3>
+      <h3 class="scope-heading">جدول الدفعات + الضريبة 15%</h3>
       <div class="payment-grid">
         ${quotationData.paymentSchedule.map((payment) => {
           const amount = getPaymentAmount(payment.percent);
@@ -2015,12 +2088,6 @@ function flagPageOverflow() {
   }
 }
 
-function renderZoomControls() {
-  zoomButtons.forEach((button) => {
-    button.classList.toggle("is-active", button.dataset.previewZoom === previewZoom);
-  });
-}
-
 function applyPreviewZoom() {
   const page = preview.querySelector(".page");
   const shell = preview.closest(".preview-shell");
@@ -2029,22 +2096,11 @@ function applyPreviewZoom() {
     return;
   }
 
-  let scale = previewZoom === "75" ? 0.75 : 1;
-
-  if (previewZoom === "fit") {
-    preview.style.setProperty("--preview-zoom", "1");
-    const pageWidth = page.getBoundingClientRect().width;
-    const availableWidth = shell.clientWidth - 16;
-    scale = Math.min(1, Math.max(0.42, availableWidth / pageWidth));
-  }
-
+  preview.style.setProperty("--preview-zoom", "1");
+  const pageWidth = page.getBoundingClientRect().width;
+  const availableWidth = shell.clientWidth - 16;
+  const scale = Math.min(1, Math.max(0.42, availableWidth / pageWidth));
   preview.style.setProperty("--preview-zoom", String(scale));
-  renderZoomControls();
-}
-
-function setPreviewZoom(zoomMode) {
-  previewZoom = zoomMode;
-  applyPreviewZoom();
 }
 
 function renderApp() {
@@ -2400,6 +2456,11 @@ editorForm.addEventListener("click", (event) => {
   const calendarNav = event.target.closest("[data-calendar-nav]");
   const dateChoice = event.target.closest("[data-date-choice]");
 
+  if (event.target.closest("[data-email-send]")) {
+    sendQuotationEmail();
+    return;
+  }
+
   if (scopeAdd) {
     addScopeItem(Number(scopeAdd.dataset.scopeAdd));
     return;
@@ -2413,6 +2474,22 @@ editorForm.addEventListener("click", (event) => {
 
   if (deliverableAdd) {
     addDeliverable();
+    return;
+  }
+
+  if (event.target.closest("[data-reset-scope]")) {
+    quotationData.scopeGroups = cloneData(getDefaultQuotationData().scopeGroups);
+    renderEditor();
+    renderPreview();
+    saveActiveProject();
+    return;
+  }
+
+  if (event.target.closest("[data-reset-deliverables]")) {
+    quotationData.deliverables = cloneData(getDefaultQuotationData().deliverables);
+    renderEditor();
+    renderPreview();
+    saveActiveProject();
     return;
   }
 
@@ -2527,28 +2604,12 @@ window.addEventListener("afterprint", restorePrintTitle);
 
 shareWhatsappBtn.addEventListener("click", shareViaWhatsApp);
 
-resetBtn.addEventListener("click", () => {
-  const defaults = getDefaultQuotationData();
-  Object.keys(quotationData).forEach((key) => delete quotationData[key]);
-  Object.assign(quotationData, defaults);
-  datePickerMonths.quotation = quotationData.dateIso;
-  datePickerMonths.deed = quotationData.deedDateIso || quotationData.dateIso;
-  renderApp();
-  saveActiveProject();
-});
 
 newProjectBtn.addEventListener("click", createNewProject);
 saveProjectBtn.addEventListener("click", saveActiveProject);
 duplicateProjectBtn.addEventListener("click", duplicateActiveProject);
 deleteProjectBtn.addEventListener("click", deleteActiveProject);
-zoomButtons.forEach((button) => {
-  button.addEventListener("click", () => setPreviewZoom(button.dataset.previewZoom));
-});
-window.addEventListener("resize", () => {
-  if (previewZoom === "fit") {
-    applyPreviewZoom();
-  }
-});
+window.addEventListener("resize", applyPreviewZoom);
 window.addEventListener("load", flagPageOverflow);
 if (document.fonts && document.fonts.ready) {
   document.fonts.ready.then(flagPageOverflow);
