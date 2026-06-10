@@ -515,16 +515,20 @@ test("projects panel has a live search with result count", () => {
   assert.match(css, /\.projects-search\s*{/);
 });
 
-test("brand colors are office-configurable and scoped to the document", () => {
-  assert.match(app, /colors:\s*{\s*\n\s*primary: "#303640",\s*\n\s*accent: "#dfb86d"/);
-  assert.match(app, /function applyBrandColors\(\)/);
-  assert.match(app, /preview\.style\.setProperty\("--gold", colors\.accent\)/);
-  assert.match(app, /preview\.style\.setProperty\("--navy", colors\.primary\)/);
-  assert.match(app, /function tintColor\(/);
-  assert.match(html, /id="settingsPrimaryColor"/);
-  assert.match(html, /id="settingsAccentColor"/);
-  assert.match(html, /id="settingsResetColorsBtn"/);
-  assert.match(css, /color-mix\(in srgb, var\(--gold\) 14%, transparent\)/);
+test("the printed document uses a neutral, print-safe palette with no brand colors or fills", () => {
+  // the document scopes a grey-only palette so nothing depends on a brand color
+  assert.match(css, /\.preview\s*{[\s\S]*--gold:\s*#8a8f98/);
+  assert.match(css, /\.preview\s*{[\s\S]*--navy:\s*#3f3f44/);
+  // the yellowish cover wash and gold accent bars are gone
+  assert.doesNotMatch(css, /\.cover\s*{[^}]*linear-gradient/);
+  assert.doesNotMatch(css, /\.page-title::before\s*{[\s\S]*?background:\s*var\(--gold\)/);
+  assert.doesNotMatch(css, /\.price-card\s*{[^}]*linear-gradient/);
+  // colored background fills replaced by transparent/bordered styling
+  assert.match(css, /\.footer-strip\s*{[^}]*background:\s*transparent/);
+  assert.match(css, /\.note\s*{[^}]*background:\s*transparent/);
+  // the now-pointless document color picker is removed from settings
+  assert.doesNotMatch(html, /id="settingsPrimaryColor"/);
+  assert.doesNotMatch(app, /function applyBrandColors/);
 });
 
 test("payment phases are fully editable: percent, label, add, remove", () => {

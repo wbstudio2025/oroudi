@@ -13,12 +13,6 @@ const defaultBrandProfile = {
   signaturePath: "assets/Signature.png",
   signatureDataUrl: "",
   closingText: "نأمل أن ينال عرضنا هذا استحسانكم، ونتطلع إلى خدمتكم بما يحقق تطلعاتكم.",
-  // Document accent colors: primary drives strong text/strips, accent drives the
-  // decorative lines and highlights. Defaults are the original navy/gold look.
-  colors: {
-    primary: "#303640",
-    accent: "#dfb86d"
-  },
   // The footer is always the structured strip rendered from these fields — no
   // designed artwork needed; an office is print-ready straight from the settings.
   footerFields: {
@@ -47,7 +41,6 @@ function loadBrandProfile() {
     const profile = {
       ...cloneData(defaultBrandProfile),
       ...parsed,
-      colors: { ...cloneData(defaultBrandProfile.colors), ...(parsed.colors || {}) },
       footerFields: { ...cloneData(defaultBrandProfile.footerFields), ...(parsed.footerFields || {}) }
     };
 
@@ -60,40 +53,6 @@ function loadBrandProfile() {
   } catch (error) {
     return cloneData(defaultBrandProfile);
   }
-}
-
-// A light tint of a brand color (mixed toward white) for soft backgrounds and borders.
-function tintColor(hexColor, ratio = 0.78) {
-  const hex = String(hexColor || "").replace("#", "");
-
-  if (!/^[0-9a-fA-F]{6}$/.test(hex)) {
-    return "#f3e5c6";
-  }
-
-  const channels = [0, 2, 4].map((offset) => {
-    const value = parseInt(hex.slice(offset, offset + 2), 16);
-    return Math.round(value + (255 - value) * ratio).toString(16).padStart(2, "0");
-  });
-
-  return `#${channels.join("")}`;
-}
-
-// The brand colors are scoped to the preview (the document), so the app shell keeps
-// the product's own look while every office prints in its identity.
-function applyBrandColors() {
-  if (!preview) {
-    return;
-  }
-
-  const colors = brandProfile.colors || defaultBrandProfile.colors;
-  // Primary recolors every dark brand tone (titles, body strongs, bars, strips);
-  // accent recolors every gold tone (decorative lines, chips, highlights).
-  preview.style.setProperty("--navy", colors.primary);
-  preview.style.setProperty("--charcoal", colors.primary);
-  preview.style.setProperty("--brand-charcoal", colors.primary);
-  preview.style.setProperty("--gold", colors.accent);
-  preview.style.setProperty("--brand-gold", colors.accent);
-  preview.style.setProperty("--gold-soft", tintColor(colors.accent));
 }
 
 function persistBrandProfileLocal() {
@@ -707,7 +666,6 @@ function mergeBrandProfile(profile) {
   return {
     ...cloneData(defaultBrandProfile),
     ...source,
-    colors: { ...cloneData(defaultBrandProfile.colors), ...(source.colors || {}) },
     footerFields: { ...cloneData(defaultBrandProfile.footerFields), ...(source.footerFields || {}) }
   };
 }
@@ -2067,7 +2025,6 @@ function setPreviewZoom(zoomMode) {
 
 function renderApp() {
   renderShellBrand();
-  applyBrandColors();
   renderEditor();
   renderPreview();
   renderProjectsPanel();
@@ -3007,15 +2964,8 @@ function refreshSettingsPreviews() {
 
 function openOfficeSettings() {
   settingsDraft = cloneData(brandProfile);
-
-  if (!settingsDraft.colors) {
-    settingsDraft.colors = cloneData(defaultBrandProfile.colors);
-  }
-
   setSettingsValue("settingsCompanyName", settingsDraft.companyName);
   setSettingsValue("settingsClosingText", settingsDraft.closingText);
-  setSettingsValue("settingsPrimaryColor", settingsDraft.colors.primary);
-  setSettingsValue("settingsAccentColor", settingsDraft.colors.accent);
   setSettingsValue("settingsCr", settingsDraft.footerFields.crNumber);
   setSettingsValue("settingsVat", settingsDraft.footerFields.vatNumber);
   setSettingsValue("settingsAccreditation", settingsDraft.footerFields.accreditation);
@@ -3064,10 +3014,6 @@ async function handleSettingsImageUpload(input) {
 function saveOfficeSettings() {
   settingsDraft.companyName = getSettingsValue("settingsCompanyName") || defaultBrandProfile.companyName;
   settingsDraft.closingText = getSettingsValue("settingsClosingText") || defaultBrandProfile.closingText;
-  settingsDraft.colors = {
-    primary: getSettingsValue("settingsPrimaryColor") || defaultBrandProfile.colors.primary,
-    accent: getSettingsValue("settingsAccentColor") || defaultBrandProfile.colors.accent
-  };
   settingsDraft.footerFields.crNumber = getSettingsValue("settingsCr");
   settingsDraft.footerFields.vatNumber = getSettingsValue("settingsVat");
   settingsDraft.footerFields.accreditation = getSettingsValue("settingsAccreditation");
@@ -3104,13 +3050,6 @@ if (officeSettingsBtn && settingsDialog && settingsForm) {
       event.preventDefault();
       settingsDraft = null;
       settingsDialog.close();
-      return;
-    }
-
-    if (event.target.closest("#settingsResetColorsBtn")) {
-      event.preventDefault();
-      setSettingsValue("settingsPrimaryColor", defaultBrandProfile.colors.primary);
-      setSettingsValue("settingsAccentColor", defaultBrandProfile.colors.accent);
       return;
     }
 

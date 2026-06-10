@@ -905,6 +905,19 @@ textarea {
   zoom: var(--preview-zoom, 1);
 }
 
+/* The printed document is intentionally neutral and print-reliable: greys only, no
+   brand-colored accents or background fills (those vanish when a PDF is saved with
+   "background graphics" off). These overrides are scoped to the preview/document, so
+   the app's own UI keeps its identity. */
+.preview {
+  --navy: #3f3f44;
+  --charcoal: #4b4a50;
+  --brand-charcoal: #3f3f44;
+  --gold: #8a8f98;
+  --brand-gold: #8a8f98;
+  --gold-soft: #e7e9ee;
+}
+
 .page {
   position: relative;
   width: 210mm;
@@ -934,15 +947,7 @@ textarea {
   pointer-events: none;
 }
 
-.page::after {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 18mm;
-  width: 36mm;
-  height: 5mm;
-  background: var(--gold);
-}
+/* The decorative gold accent bar was removed for a neutral, print-reliable look. */
 
 .page-content {
   position: relative;
@@ -1011,9 +1016,7 @@ textarea {
 }
 
 .cover {
-  background:
-    linear-gradient(135deg, rgba(75, 74, 80, 0.04), color-mix(in srgb, var(--gold) 14%, transparent) 42%, transparent 42%),
-    #fff;
+  background: #fff;
 }
 
 .cover .page-content {
@@ -1118,13 +1121,7 @@ textarea {
   font-weight: 900;
 }
 
-.page-title::before {
-  content: "";
-  width: 24px;
-  height: 3px;
-  border-radius: 99px;
-  background: var(--gold);
-}
+/* The small accent bar before page titles was removed for a neutral look. */
 
 .intro {
   margin: 0 0 18px;
@@ -1168,8 +1165,8 @@ textarea {
 
 .services-table thead th {
   width: auto;
-  background: var(--navy);
-  color: #fff;
+  background: #f7f8fa;
+  color: var(--charcoal);
 }
 
 .data-table tr:last-child th,
@@ -1199,8 +1196,9 @@ textarea {
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background: var(--gold-soft);
-  color: var(--gold);
+  border: 1.5px solid var(--line);
+  background: transparent;
+  color: var(--charcoal);
   font-size: 12px;
 }
 
@@ -1302,9 +1300,9 @@ textarea {
 .note {
   margin-top: 18px;
   padding: 14px;
-  border-right: 4px solid var(--gold);
-  background: color-mix(in srgb, var(--gold) 10%, #fff);
-  color: #4f5660;
+  border-right: 4px solid var(--line);
+  background: transparent;
+  color: var(--charcoal);
   font-size: 14px;
   white-space: pre-wrap;
 }
@@ -1345,7 +1343,9 @@ textarea {
   margin: 22px 0;
   padding: 22px;
   text-align: center;
-  background: linear-gradient(180deg, #ffffff, #fcf7ea);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: transparent;
 }
 
 .price-card span {
@@ -1572,10 +1572,10 @@ textarea {
   align-items: center;
   justify-content: center;
   gap: 12px;
-  padding: 8px 14px;
-  border-radius: 8px;
-  background: var(--navy);
-  color: #fff;
+  padding: 8px 0;
+  border-top: 1px solid var(--line);
+  background: transparent;
+  color: var(--muted);
   text-align: center;
 }
 
@@ -1615,7 +1615,7 @@ textarea {
 }
 
 .footer-registrations {
-  color: var(--gold-soft);
+  color: var(--charcoal);
   font-size: 8.5px;
   font-weight: 700;
 }
@@ -1741,16 +1741,6 @@ textarea {
   display: flex;
   gap: 10px;
   margin-top: 6px;
-}
-
-.settings-colors input[type="color"] {
-  width: 100%;
-  height: 38px;
-  padding: 3px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: #fff;
-  cursor: pointer;
 }
 
 /* Projects panel search. */
