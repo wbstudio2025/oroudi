@@ -1048,6 +1048,11 @@ textarea {
 
 .cover .page-content {
   justify-content: space-between;
+  min-height: calc(297mm - 38mm);
+}
+
+.cover .doc-footer {
+  margin-top: 0;
 }
 
 .cover-logo {
@@ -1061,8 +1066,7 @@ textarea {
 .cover-top {
   display: flex;
   align-items: flex-start;
-  justify-content: space-between;
-  gap: 24px;
+  justify-content: center;
 }
 
 .cover-badge {
@@ -1078,7 +1082,7 @@ textarea {
 .cover-title {
   width: 100%;
   max-width: 100%;
-  margin: 42mm 0 22mm;
+  margin: 0;
   text-align: center;
 }
 

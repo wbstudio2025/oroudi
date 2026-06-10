@@ -1789,10 +1789,9 @@ function renderSummary(totalPages) {
     "ملخص المشروع",
     `
       <p class="intro">
-        بناءً على بيانات الأرض المقدمة، تقدم ${escapeHtml(brandProfile.companyName)} عرضها لتصميم وإصدار رخصة بناء
+        بناءً على بيانات الأرض المقدمة، تقدم ${escapeHtml(brandProfile.companyName)} عرضها
         ل${escapeHtml(quotationData.projectType)} في حي ${ph(quotationData.district, "الحي")} بمدينة ${ph(quotationData.city, "المدينة")}،
-        من خلال باقة متكاملة تشمل الدراسات الأولية، التصميم المعماري، المخططات الهندسية، المنظور الخارجي،
-        وإجراءات إصدار رخصة البناء.
+        وذلك وفق نطاق الأعمال المفصّل في هذا العرض.
       </p>
       <table class="data-table"><tbody>${rows}</tbody></table>
     `,
