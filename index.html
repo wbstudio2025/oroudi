@@ -5,9 +5,23 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>عروضي — محرر عروض الأسعار</title>
     <link rel="icon" href="assets/app-icon.ico">
-    <link rel="stylesheet" href="styles.css?v=v7">
+    <link rel="stylesheet" href="styles.css?v=v8">
   </head>
   <body>
+    <section id="loginOverlay" class="login-overlay" aria-label="تسجيل الدخول إلى مشاريع المكتب" hidden>
+      <form id="loginForm" class="login-card">
+        <img src="assets/LOGO.png" alt="">
+        <h2>تسجيل دخول المكتب</h2>
+        <p>استخدم بيانات الدخول المشتركة لفتح مشاريع المكتب المحفوظة على الإنترنت.</p>
+        <label for="loginEmail">البريد الإلكتروني</label>
+        <input id="loginEmail" type="email" autocomplete="username" required>
+        <label for="loginPassword">كلمة المرور</label>
+        <input id="loginPassword" type="password" autocomplete="current-password" required>
+        <button class="primary-btn" type="submit">دخول</button>
+        <p id="loginStatus" class="login-status" role="alert"></p>
+      </form>
+    </section>
+
     <header class="app-header">
       <div class="brand">
         <img id="brandLogo" src="assets/LOGO.png" alt="شعار المكتب">
@@ -17,6 +31,8 @@
         </div>
       </div>
       <div class="actions">
+        <span id="syncStatus" class="sync-status" aria-live="polite">محلي فقط</span>
+        <button id="logoutBtn" class="secondary-btn" type="button" hidden>تسجيل الخروج</button>
         <button id="officeSettingsBtn" class="secondary-btn" type="button">
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <circle cx="12" cy="12" r="3"/>
@@ -150,16 +166,7 @@
         <button id="settingsResetColorsBtn" class="secondary-btn" type="button">إعادة الألوان الافتراضية</button>
 
         <h3>تذييل الصفحات</h3>
-        <div class="field footer-mode-field">
-          <label class="radio-option"><input type="radio" name="footerMode" value="image"> صورة تذييل جاهزة</label>
-          <label class="radio-option"><input type="radio" name="footerMode" value="fields"> شريط بيانات منظم (يُبنى من الحقول أدناه)</label>
-        </div>
-        <div class="field">
-          <label for="settingsFooterImageFile">صورة التذييل (لوضع الصورة الجاهزة)</label>
-          <img id="settingsFooterImagePreview" class="settings-preview settings-preview-wide" alt="" hidden>
-          <input id="settingsFooterImageFile" data-settings-image="footerImage" type="file" accept="image/*">
-        </div>
-
+        <p class="settings-hint">يُبنى التذييل تلقائياً من الحقول التالية ويظهر في منتصف أسفل كل صفحة.</p>
         <div class="settings-grid">
           <div class="field">
             <label for="settingsCr">السجل التجاري</label>
@@ -207,7 +214,9 @@
       </form>
     </dialog>
 
-    <script src="tafqit.js?v=v7"></script>
-    <script src="app.js?v=v7"></script>
+    <script src="supabase-config.js?v=v1"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="tafqit.js?v=v8"></script>
+    <script src="app.js?v=v8"></script>
   </body>
 </html>

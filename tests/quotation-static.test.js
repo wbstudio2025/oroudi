@@ -6,6 +6,9 @@ const root = path.resolve(__dirname, "..");
 const app = fs.readFileSync(path.join(root, "app.js"), "utf8");
 const css = fs.readFileSync(path.join(root, "styles.css"), "utf8");
 const html = fs.readFileSync(path.join(root, "index.html"), "utf8");
+const config = fs.existsSync(path.join(root, "supabase-config.js"))
+  ? fs.readFileSync(path.join(root, "supabase-config.js"), "utf8")
+  : "";
 
 function test(name, fn) {
   try {
@@ -18,12 +21,48 @@ function test(name, fn) {
   }
 }
 
-test("printed pages use the office footer (image or structured strip) on every page shell", () => {
-  assert.match(app, /footerImagePath:\s*"assets\/Footer\.png"/);
-  assert.match(app, /class="brand-footer"/);
-  assert.match(app, /getFooterImageSrc\(\)/);
-  assert.match(app, /brandProfile\.footerMode === "fields"/);
+test("printed pages use the structured office footer on every non-final page shell", () => {
+  assert.match(app, /class="doc-footer"/);
+  assert.match(app, /function renderFooterStrip\(\)/);
   assert.match(app, /class="footer-strip"/);
+  assert.match(app, /isLast \? "" : renderFooter\(pageNumber, totalPages\)/);
+});
+
+test("Supabase client and public config load before the app entrypoint", () => {
+  const supabaseConfigIndex = html.indexOf('src="supabase-config.js');
+  const supabaseCdnIndex = html.indexOf("@supabase/supabase-js");
+  const appIndex = html.indexOf('src="app.js');
+
+  assert.ok(supabaseConfigIndex > -1, "supabase-config.js is not loaded");
+  assert.ok(supabaseCdnIndex > -1, "Supabase CDN client is not loaded");
+  assert.ok(supabaseConfigIndex < appIndex, "config must load before app.js");
+  assert.ok(supabaseCdnIndex < appIndex, "Supabase client must load before app.js");
+  assert.match(config, /window\.OROUDY_SUPABASE_CONFIG/);
+  assert.match(config, /SUPABASE_URL/);
+  assert.match(config, /SUPABASE_ANON_KEY/);
+});
+
+test("cloud persistence adapter maps projects and prefers cloud data over local cache", () => {
+  assert.match(app, /function projectToSupabaseRow\(project, officeId\)/);
+  assert.match(app, /function projectFromSupabaseRow\(row\)/);
+  assert.match(app, /function shouldUploadLocalProjects\(cloudProjects, localProjects\)/);
+  assert.match(app, /return cloudProjects\.length === 0 && localProjects\.length > 0/);
+  assert.match(app, /function applyCloudProjects\(cloudProjects\)/);
+});
+
+test("shared office login syncs brand profile and projects through Supabase", () => {
+  assert.match(html, /id="loginOverlay"/);
+  assert.match(html, /id="loginForm"/);
+  assert.match(html, /id="syncStatus"/);
+  assert.match(app, /const cloudState\s*=/);
+  assert.match(app, /function createSupabaseClient\(\)/);
+  assert.match(app, /auth\.signInWithPassword/);
+  assert.match(app, /auth\.signOut/);
+  assert.match(app, /function initializeCloudSession\(\)/);
+  assert.match(app, /function loadCloudWorkspace\(\)/);
+  assert.match(app, /function scheduleCloudProjectSync\(\)/);
+  assert.match(app, /function persistBrandProfile\(\)[\s\S]*scheduleCloudBrandSync\(\);/);
+  assert.match(app, /function persistProjects\(\)[\s\S]*scheduleCloudProjectSync\(\);/);
 });
 
 test("scope cards choose semantic icons by item name", () => {
@@ -83,7 +122,7 @@ test("financial terms render as a simple list instead of rounded cards", () => {
 
 test("deliverables render as a simple checklist without rounded cards", () => {
   assert.match(app, /class="deliverables-list"/);
-  assert.match(app, /<li class="deliverable"><span class="check">✓<\/span><span>\$\{escapeHtml\(item\.name\)\}<\/span><\/li>/);
+  assert.match(app, /<li class="deliverable"><span class="check">✓<\/span><div><span>\$\{escapeHtml\(item\.name\)\}<\/span>/);
   assert.doesNotMatch(app, /class="deliverables-grid"/);
   assert.match(css, /\.deliverables-list\s*{[\s\S]*list-style:\s*none/);
   assert.match(css, /\.deliverable\s*{[^}]*border:\s*0/);
@@ -307,8 +346,9 @@ test("scope of work is an editable checklist (toggle + add + remove) in the edit
   // toggling a checkbox updates enabled; preview renders only enabled items
   assert.match(app, /\.items\[Number\(input\.dataset\.scopeItem\)\]\.enabled = input\.checked/);
   assert.match(app, /group\.items\.filter\(\(item\) => item\.enabled !== false\)/);
-  // legacy string items migrate to { name, enabled }
-  assert.match(app, /typeof item === "string"[\s\S]*?\{ name: item, enabled: true \}/);
+  // legacy string items migrate to { name, enabled, description }
+  assert.match(app, /typeof item === "string" \? true : item\.enabled !== false/);
+  assert.match(app, /scopeDescriptionMap\[name\] \|\| ""/);
   // Enter in an add field must not reload the page
   assert.match(app, /editorForm\.addEventListener\("submit"/);
   assert.match(css, /\.scope-check-row\s*{/);
@@ -403,7 +443,6 @@ test("office settings dialog edits name, images, footer fields and defaults", ()
   assert.match(html, /id="settingsVat"/);
   assert.match(html, /id="settingsCr"/);
   assert.match(html, /id="settingsAccreditation"/);
-  assert.match(html, /name="footerMode"/);
   assert.match(app, /function openOfficeSettings\(\)/);
   assert.match(app, /function saveOfficeSettings\(\)/);
   assert.match(app, /function readImageAsDataUrl\(/); // uploads downscaled for localStorage

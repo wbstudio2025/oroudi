@@ -56,6 +56,82 @@ body {
   line-height: 1.7;
 }
 
+.login-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(48, 54, 64, 0.64);
+  backdrop-filter: blur(10px);
+}
+
+.login-overlay[hidden] {
+  display: none;
+}
+
+.login-card {
+  width: min(100%, 420px);
+  padding: 28px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 22px 60px rgba(26, 31, 38, 0.24);
+}
+
+.login-card img {
+  width: 86px;
+  height: 62px;
+  object-fit: contain;
+  display: block;
+  margin: 0 auto 12px;
+}
+
+.login-card h2,
+.login-card p {
+  margin: 0;
+  text-align: center;
+}
+
+.login-card h2 {
+  color: var(--navy);
+  font-size: 22px;
+}
+
+.login-card p {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.login-card label {
+  display: block;
+  margin: 16px 0 6px;
+  color: var(--navy);
+  font-weight: 800;
+}
+
+.login-card input {
+  width: 100%;
+  min-height: 42px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.login-card button {
+  width: 100%;
+  margin-top: 18px;
+}
+
+.login-status {
+  min-height: 24px;
+  margin-top: 12px !important;
+  color: #9d2f2f !important;
+  font-weight: 700;
+}
+
 button,
 input,
 select,
@@ -110,7 +186,39 @@ textarea {
 .actions {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 10px;
+}
+
+.sync-status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.sync-status[data-state="ready"] {
+  border-color: #9fc6ac;
+  color: #27613d;
+  background: #f2faf4;
+}
+
+.sync-status[data-state="syncing"] {
+  border-color: #d8c07e;
+  color: #7b5d12;
+  background: #fff9e9;
+}
+
+.sync-status[data-state="error"] {
+  border-color: #d6a3a3;
+  color: #9d2f2f;
+  background: #fff7f7;
 }
 
 .primary-btn,
@@ -893,13 +1001,6 @@ textarea {
   padding-top: 7mm;
 }
 
-.brand-footer {
-  display: block;
-  width: 100%;
-  height: auto;
-  max-height: 20mm;
-  object-fit: contain;
-}
 
 .page-number {
   justify-self: center;
@@ -1027,7 +1128,7 @@ textarea {
 
 .intro {
   margin: 0 0 18px;
-  color: #333b46;
+  color: var(--charcoal);
   font-size: 16px;
 }
 
@@ -1202,7 +1303,7 @@ textarea {
   margin-top: 18px;
   padding: 14px;
   border-right: 4px solid var(--gold);
-  background: #fcf7ea;
+  background: color-mix(in srgb, var(--gold) 10%, #fff);
   color: #4f5660;
   font-size: 14px;
   white-space: pre-wrap;
@@ -1469,11 +1570,24 @@ textarea {
 .footer-strip {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px 12px;
+  justify-content: center;
+  gap: 12px;
+  padding: 8px 14px;
   border-radius: 8px;
   background: var(--navy);
   color: #fff;
+  text-align: center;
+}
+
+/* Screen-only nudge while the office footer data is still empty; never printed. */
+.footer-strip-hint {
+  padding: 8px 14px;
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  color: var(--ink-light);
+  font-size: 9.5px;
+  font-weight: 700;
+  text-align: center;
 }
 
 .footer-qr {
@@ -1494,6 +1608,7 @@ textarea {
 .footer-contacts {
   display: flex;
   flex-wrap: wrap;
+  justify-content: center;
   gap: 4px 12px;
   font-size: 9px;
   font-weight: 700;
@@ -1505,12 +1620,64 @@ textarea {
   font-weight: 700;
 }
 
-/* Optional-service rows: label + remove button on one line. */
+/* Optional-service rows: label + description/remove buttons on one line. */
 .service-label-row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 8px;
+}
+
+.service-label-row label {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Inline description editors (scope items, deliverables, optional services). */
+.desc-toggle {
+  flex: 0 0 auto;
+  padding: 3px 9px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: 10.5px;
+  font-weight: 800;
+}
+
+.desc-toggle:hover,
+.desc-toggle.is-open {
+  border-color: var(--gold);
+  color: var(--charcoal);
+}
+
+.desc-input {
+  width: 100%;
+  margin: 2px 0 8px;
+  padding: 8px 12px;
+  border: 1px dashed var(--gold);
+  border-radius: 8px;
+  background: #fffdf6;
+  color: var(--charcoal);
+  font: inherit;
+  font-size: 12px;
+}
+
+.desc-input:focus {
+  border-style: solid;
+  outline: 0;
+}
+
+.scope-check-row .scope-check {
+  flex: 1;
+  min-width: 0;
+}
+
+/* A deliverable may carry an optional small description under its name. */
+.deliverable > div {
+  display: grid;
+  gap: 2px;
 }
 
 /* Office settings dialog. */
@@ -1568,23 +1735,6 @@ textarea {
 
 .settings-preview-wide {
   max-width: 100%;
-}
-
-.footer-mode-field {
-  display: grid;
-  gap: 6px;
-}
-
-.radio-option {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 12.5px;
-  font-weight: 700;
-}
-
-.radio-option input {
-  margin: 0;
 }
 
 .settings-actions {
@@ -1703,6 +1853,10 @@ textarea {
   .footer-strip {
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
+  }
+
+  .footer-strip-hint {
+    display: none !important;
   }
 
   .workspace {

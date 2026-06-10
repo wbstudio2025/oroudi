@@ -1,0 +1,4 @@
+window.OROUDY_SUPABASE_CONFIG = {
+  SUPABASE_URL: "",
+  SUPABASE_ANON_KEY: ""
+};

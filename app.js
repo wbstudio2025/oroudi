@@ -19,11 +19,8 @@ const defaultBrandProfile = {
     primary: "#303640",
     accent: "#dfb86d"
   },
-  // "image": a ready-made footer artwork (the legacy Footer.png look).
-  // "fields": a structured strip rendered from the fields below — no designer needed.
-  footerMode: "image",
-  footerImagePath: "assets/Footer.png",
-  footerImageDataUrl: "",
+  // The footer is always the structured strip rendered from these fields — no
+  // designed artwork needed; an office is print-ready straight from the settings.
   footerFields: {
     crNumber: "",
     vatNumber: "",
@@ -47,12 +44,19 @@ function loadBrandProfile() {
       return cloneData(defaultBrandProfile);
     }
 
-    return {
+    const profile = {
       ...cloneData(defaultBrandProfile),
       ...parsed,
       colors: { ...cloneData(defaultBrandProfile.colors), ...(parsed.colors || {}) },
       footerFields: { ...cloneData(defaultBrandProfile.footerFields), ...(parsed.footerFields || {}) }
     };
+
+    // The image-footer mode was removed; the structured strip is the only footer now.
+    delete profile.footerMode;
+    delete profile.footerImagePath;
+    delete profile.footerImageDataUrl;
+
+    return profile;
   } catch (error) {
     return cloneData(defaultBrandProfile);
   }
@@ -82,14 +86,23 @@ function applyBrandColors() {
   }
 
   const colors = brandProfile.colors || defaultBrandProfile.colors;
+  // Primary recolors every dark brand tone (titles, body strongs, bars, strips);
+  // accent recolors every gold tone (decorative lines, chips, highlights).
   preview.style.setProperty("--navy", colors.primary);
+  preview.style.setProperty("--charcoal", colors.primary);
+  preview.style.setProperty("--brand-charcoal", colors.primary);
   preview.style.setProperty("--gold", colors.accent);
   preview.style.setProperty("--brand-gold", colors.accent);
   preview.style.setProperty("--gold-soft", tintColor(colors.accent));
 }
 
-function persistBrandProfile() {
+function persistBrandProfileLocal() {
   localStorage.setItem(BRAND_PROFILE_STORAGE_KEY, JSON.stringify(brandProfile));
+}
+
+function persistBrandProfile() {
+  persistBrandProfileLocal();
+  scheduleCloudBrandSync();
 }
 
 function getLogoSrc() {
@@ -98,10 +111,6 @@ function getLogoSrc() {
 
 function getSignatureSrc() {
   return brandProfile.signatureDataUrl || brandProfile.signaturePath;
-}
-
-function getFooterImageSrc() {
-  return brandProfile.footerImageDataUrl || brandProfile.footerImagePath;
 }
 
 let brandProfile = loadBrandProfile();
@@ -136,27 +145,27 @@ const quotationData = {
       number: "01",
       title: "الأعمال الأولية",
       items: [
-        { name: "رفع مساحي", enabled: true },
-        { name: "إصدار قرار مساحي", enabled: true },
-        { name: "دراسة تربة", enabled: true }
+        { name: "رفع مساحي", enabled: true, description: "تحديد مناسيب وحدود الموقع بدقة." },
+        { name: "إصدار قرار مساحي", enabled: true, description: "تجهيز متطلبات القرار عبر الجهات المختصة." },
+        { name: "دراسة تربة", enabled: true, description: "تقييم خواص التربة كأساس للتصميم." }
       ]
     },
     {
       number: "02",
       title: "التصميم والمخططات الهندسية",
       items: [
-        { name: "التصميم المعماري", enabled: true },
-        { name: "التصميم الإنشائي", enabled: true },
-        { name: "التصميم الكهربائي", enabled: true },
-        { name: "التصميم الميكانيكي", enabled: true }
+        { name: "التصميم المعماري", enabled: true, description: "توزيع الفراغات والواجهات حسب احتياج المشروع." },
+        { name: "التصميم الإنشائي", enabled: true, description: "حساب النظام الإنشائي والعناصر الحاملة." },
+        { name: "التصميم الكهربائي", enabled: true, description: "تخطيط الأحمال ومسارات التمديدات الكهربائية." },
+        { name: "التصميم الميكانيكي", enabled: true, description: "تنسيق التكييف والصرف والتغذية." }
       ]
     },
     {
       number: "03",
       title: "التصور والرخصة",
       items: [
-        { name: "منظور خارجي واحد", enabled: true },
-        { name: "إصدار رخصة بناء", enabled: true }
+        { name: "منظور خارجي واحد", enabled: true, description: "إظهار الواجهة الرئيسية بصورة واقعية." },
+        { name: "إصدار رخصة بناء", enabled: true, description: "متابعة رفع الطلب حتى إصدار الرخصة." }
       ]
     }
   ],
@@ -237,10 +246,30 @@ const enableBackupBtn = document.querySelector("#enableBackupBtn");
 const backupNowBtn = document.querySelector("#backupNowBtn");
 const restoreBackupBtn = document.querySelector("#restoreBackupBtn");
 const zoomButtons = document.querySelectorAll("[data-preview-zoom]");
+const loginOverlay = document.querySelector("#loginOverlay");
+const loginForm = document.querySelector("#loginForm");
+const loginEmail = document.querySelector("#loginEmail");
+const loginPassword = document.querySelector("#loginPassword");
+const loginStatus = document.querySelector("#loginStatus");
+const syncStatus = document.querySelector("#syncStatus");
+const logoutBtn = document.querySelector("#logoutBtn");
 
 const PROJECTS_STORAGE_KEY = "duralNafisQuotationProjects";
 const ACTIVE_PROJECT_STORAGE_KEY = "duralNafisActiveQuotationProject";
 const ORIGINAL_DOCUMENT_TITLE = document.title;
+const CLOUD_SYNC_DEBOUNCE_MS = 900;
+
+const cloudState = {
+  client: null,
+  configured: false,
+  ready: false,
+  officeId: "",
+  syncing: false,
+  projectTimer: 0,
+  brandTimer: 0,
+  pendingDeleteIds: new Set(),
+  applyingCloud: false
+};
 
 const projectTypeOptions = [
   "فيلا سكنية",
@@ -597,7 +626,13 @@ function cloneData(data) {
 }
 
 function createProjectId() {
-  return `project-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  if (window.crypto && typeof window.crypto.randomUUID === "function") {
+    return window.crypto.randomUUID();
+  }
+
+  return "10000000-1000-4000-8000-100000000000".replace(/[018]/g, (char) =>
+    (Number(char) ^ (Math.random() * 16 >> (Number(char) / 4))).toString(16)
+  );
 }
 
 function getProjectName(data = quotationData) {
@@ -621,7 +656,24 @@ function formatProjectUpdatedAt(isoDate) {
   }).format(new Date(isoDate));
 }
 
-function readSavedProjects() {
+function isUuid(value) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value || ""));
+}
+
+function normalizeProjectRecord(project) {
+  if (!project || !project.data) {
+    return null;
+  }
+
+  return {
+    id: isUuid(project.id) ? project.id : createProjectId(),
+    name: project.name || getProjectName(project.data),
+    updatedAt: project.updatedAt || new Date().toISOString(),
+    data: migrateProjectData(project.data)
+  };
+}
+
+function readRawLocalProjects() {
   try {
     const parsedProjects = JSON.parse(localStorage.getItem(PROJECTS_STORAGE_KEY) || "[]");
     return Array.isArray(parsedProjects) ? parsedProjects.filter((project) => project && project.id && project.data) : [];
@@ -630,14 +682,326 @@ function readSavedProjects() {
   }
 }
 
-function persistProjects() {
+function readSavedProjects() {
+  return readRawLocalProjects().map(normalizeProjectRecord).filter(Boolean);
+}
+
+function persistProjectsLocal() {
   localStorage.setItem(PROJECTS_STORAGE_KEY, JSON.stringify(savedProjects));
   localStorage.setItem(ACTIVE_PROJECT_STORAGE_KEY, activeProjectId);
+}
+
+function persistProjects() {
+  persistProjectsLocal();
   scheduleBackup();
+  scheduleCloudProjectSync();
 }
 
 function getActiveProject() {
   return savedProjects.find((project) => project.id === activeProjectId);
+}
+
+function mergeBrandProfile(profile) {
+  const source = profile && typeof profile === "object" ? profile : {};
+
+  return {
+    ...cloneData(defaultBrandProfile),
+    ...source,
+    colors: { ...cloneData(defaultBrandProfile.colors), ...(source.colors || {}) },
+    footerFields: { ...cloneData(defaultBrandProfile.footerFields), ...(source.footerFields || {}) }
+  };
+}
+
+function projectToSupabaseRow(project, officeId) {
+  return {
+    id: project.id,
+    office_id: officeId,
+    name: project.name || getProjectName(project.data),
+    data: migrateProjectData(project.data),
+    updated_at: project.updatedAt || new Date().toISOString()
+  };
+}
+
+function projectFromSupabaseRow(row) {
+  if (!row || !row.id || !row.data) {
+    return null;
+  }
+
+  return {
+    id: row.id,
+    name: row.name || getProjectName(row.data),
+    updatedAt: row.updated_at || row.updatedAt || new Date().toISOString(),
+    data: migrateProjectData(row.data)
+  };
+}
+
+function shouldUploadLocalProjects(cloudProjects, localProjects) {
+  return cloudProjects.length === 0 && localProjects.length > 0;
+}
+
+function setSyncStatus(state, message) {
+  if (!syncStatus) {
+    return;
+  }
+
+  syncStatus.dataset.state = state;
+  syncStatus.textContent = message;
+}
+
+function setLoginMessage(message) {
+  if (loginStatus) {
+    loginStatus.textContent = message || "";
+  }
+}
+
+function showLoginOverlay(show) {
+  if (loginOverlay) {
+    loginOverlay.hidden = !show;
+  }
+
+  if (logoutBtn) {
+    logoutBtn.hidden = show || !cloudState.configured;
+  }
+}
+
+function createSupabaseClient() {
+  const config = window.OROUDY_SUPABASE_CONFIG || {};
+  const url = String(config.SUPABASE_URL || "").trim();
+  const anonKey = String(config.SUPABASE_ANON_KEY || "").trim();
+
+  if (!url || !anonKey || !window.supabase || typeof window.supabase.createClient !== "function") {
+    return null;
+  }
+
+  return window.supabase.createClient(url, anonKey);
+}
+
+function applyCloudProjects(cloudProjects) {
+  const nextProjects = cloudProjects.map(projectFromSupabaseRow).filter(Boolean);
+
+  if (!nextProjects.length) {
+    return;
+  }
+
+  savedProjects = nextProjects;
+  activeProjectId = nextProjects.some((project) => project.id === activeProjectId)
+    ? activeProjectId
+    : nextProjects[0].id;
+  applyProjectData(getActiveProject().data);
+  persistProjectsLocal();
+}
+
+async function syncBrandProfileNow() {
+  if (!cloudState.ready || !cloudState.client || !cloudState.officeId) {
+    return;
+  }
+
+  const { error } = await cloudState.client
+    .from("offices")
+    .update({
+      brand_profile: brandProfile,
+      updated_at: new Date().toISOString()
+    })
+    .eq("id", cloudState.officeId);
+
+  if (error) {
+    throw error;
+  }
+}
+
+async function syncProjectsNow() {
+  if (!cloudState.ready || !cloudState.client || !cloudState.officeId) {
+    return;
+  }
+
+  const deleteIds = Array.from(cloudState.pendingDeleteIds);
+  cloudState.pendingDeleteIds.clear();
+
+  if (deleteIds.length) {
+    const { error: deleteError } = await cloudState.client
+      .from("projects")
+      .delete()
+      .in("id", deleteIds);
+
+    if (deleteError) {
+      deleteIds.forEach((id) => cloudState.pendingDeleteIds.add(id));
+      throw deleteError;
+    }
+  }
+
+  if (!savedProjects.length) {
+    return;
+  }
+
+  const rows = savedProjects.map((project) => projectToSupabaseRow(project, cloudState.officeId));
+  const { error } = await cloudState.client
+    .from("projects")
+    .upsert(rows, { onConflict: "id" });
+
+  if (error) {
+    throw error;
+  }
+}
+
+function scheduleCloudBrandSync() {
+  if (!cloudState.ready || cloudState.applyingCloud) {
+    return;
+  }
+
+  clearTimeout(cloudState.brandTimer);
+  cloudState.brandTimer = setTimeout(async () => {
+    try {
+      setSyncStatus("syncing", "مزامنة هوية المكتب...");
+      await syncBrandProfileNow();
+      setSyncStatus("ready", "متصل - تمت المزامنة");
+    } catch (error) {
+      setSyncStatus("error", "تعذرت مزامنة هوية المكتب");
+    }
+  }, CLOUD_SYNC_DEBOUNCE_MS);
+}
+
+function scheduleCloudProjectSync() {
+  if (!cloudState.ready || cloudState.applyingCloud) {
+    return;
+  }
+
+  clearTimeout(cloudState.projectTimer);
+  cloudState.projectTimer = setTimeout(async () => {
+    try {
+      cloudState.syncing = true;
+      setSyncStatus("syncing", "مزامنة المشاريع...");
+      await syncProjectsNow();
+      setSyncStatus("ready", "متصل - تمت المزامنة");
+    } catch (error) {
+      setSyncStatus("error", "تعذرت مزامنة المشاريع");
+    } finally {
+      cloudState.syncing = false;
+    }
+  }, CLOUD_SYNC_DEBOUNCE_MS);
+}
+
+async function uploadInitialLocalWorkspace(localProjects) {
+  savedProjects = localProjects.map(normalizeProjectRecord).filter(Boolean);
+
+  if (!savedProjects.length) {
+    const firstProject = createProject(quotationData, getProjectName(quotationData));
+    savedProjects = [firstProject];
+  }
+
+  activeProjectId = savedProjects.some((project) => project.id === activeProjectId)
+    ? activeProjectId
+    : savedProjects[0].id;
+  persistProjectsLocal();
+  await syncBrandProfileNow();
+  await syncProjectsNow();
+}
+
+async function loadCloudWorkspace() {
+  if (!cloudState.client) {
+    return;
+  }
+
+  try {
+    setSyncStatus("syncing", "جاري تحميل مشاريع المكتب...");
+    showLoginOverlay(false);
+
+    const { data: memberships, error: memberError } = await cloudState.client
+      .from("members")
+      .select("office_id, role")
+      .limit(1);
+
+    if (memberError) {
+      throw memberError;
+    }
+
+    const membership = memberships && memberships[0];
+    if (!membership || !membership.office_id) {
+      throw new Error("no office membership");
+    }
+
+    cloudState.officeId = membership.office_id;
+
+    const { data: office, error: officeError } = await cloudState.client
+      .from("offices")
+      .select("id, name, brand_profile")
+      .eq("id", cloudState.officeId)
+      .single();
+
+    if (officeError) {
+      throw officeError;
+    }
+
+    const { data: projectRows, error: projectsError } = await cloudState.client
+      .from("projects")
+      .select("id, name, data, updated_at, created_at")
+      .eq("office_id", cloudState.officeId)
+      .order("updated_at", { ascending: false });
+
+    if (projectsError) {
+      throw projectsError;
+    }
+
+    const cloudProjects = (projectRows || []).map(projectFromSupabaseRow).filter(Boolean);
+    const localProjects = readRawLocalProjects().map(normalizeProjectRecord).filter(Boolean);
+
+    cloudState.ready = true;
+    cloudState.applyingCloud = true;
+
+    if (office && office.brand_profile) {
+      brandProfile = mergeBrandProfile(office.brand_profile);
+      persistBrandProfileLocal();
+    }
+
+    if (shouldUploadLocalProjects(cloudProjects, localProjects)) {
+      await uploadInitialLocalWorkspace(localProjects);
+    } else if (cloudProjects.length) {
+      applyCloudProjects(projectRows || []);
+    } else {
+      await uploadInitialLocalWorkspace(savedProjects);
+    }
+
+    cloudState.applyingCloud = false;
+    renderApp();
+    setSyncStatus("ready", "متصل - مشاريع المكتب مشتركة");
+  } catch (error) {
+    cloudState.ready = false;
+    cloudState.applyingCloud = false;
+    setSyncStatus("error", "تعذر الاتصال بمشاريع المكتب");
+    showLoginOverlay(true);
+    setLoginMessage("تحقق من بيانات الدخول أو إعدادات Supabase.");
+  }
+}
+
+async function initializeCloudSession() {
+  cloudState.client = createSupabaseClient();
+  cloudState.configured = Boolean(cloudState.client);
+
+  if (!cloudState.client) {
+    setSyncStatus("local", "محلي فقط - أضف إعدادات Supabase للنشر");
+    showLoginOverlay(false);
+    return;
+  }
+
+  setSyncStatus("syncing", "فحص جلسة الدخول...");
+
+  const { data } = await cloudState.client.auth.getSession();
+  if (data && data.session) {
+    await loadCloudWorkspace();
+  } else {
+    setSyncStatus("error", "غير مسجل الدخول");
+    showLoginOverlay(true);
+  }
+
+  cloudState.client.auth.onAuthStateChange((event, session) => {
+    if (event === "SIGNED_IN" && session) {
+      loadCloudWorkspace();
+    } else if (event === "SIGNED_OUT") {
+      cloudState.ready = false;
+      cloudState.officeId = "";
+      setSyncStatus("error", "غير مسجل الدخول");
+      showLoginOverlay(true);
+    }
+  });
 }
 
 function migrateProjectData(data) {
@@ -671,19 +1035,28 @@ function migrateProjectData(data) {
     migratedData.scopeGroups = migratedData.scopeGroups.map((group) => ({
       ...group,
       items: Array.isArray(group.items)
-        ? group.items.map((item) =>
-            typeof item === "string"
-              ? { name: item, enabled: true }
-              : { name: item.name, enabled: item.enabled !== false }
-          )
+        ? group.items.map((item) => {
+            const name = typeof item === "string" ? item : item.name;
+
+            return {
+              name,
+              enabled: typeof item === "string" ? true : item.enabled !== false,
+              // Descriptions used to come from a fixed map; older items inherit theirs.
+              description: typeof item === "string" || item.description === undefined
+                ? scopeDescriptionMap[name] || ""
+                : item.description
+            };
+          })
         : []
     }));
   }
 
-  // Deliverables follow the same string → { name, enabled } migration as scope items.
+  // Deliverables follow the same string → { name, enabled, description } migration as scope items.
   if (Array.isArray(migratedData.deliverables)) {
     migratedData.deliverables = migratedData.deliverables.map((item) =>
-      typeof item === "string" ? { name: item, enabled: true } : { name: item.name, enabled: item.enabled !== false }
+      typeof item === "string"
+        ? { name: item, enabled: true, description: "" }
+        : { name: item.name, enabled: item.enabled !== false, description: item.description || "" }
     );
   }
 
@@ -783,6 +1156,7 @@ function deleteActiveProject() {
     return;
   }
 
+  cloudState.pendingDeleteIds.add(project.id);
   savedProjects = savedProjects.filter((savedProject) => savedProject.id !== project.id);
 
   if (!savedProjects.length) {
@@ -1087,12 +1461,16 @@ function renderEditor() {
         `
         : `<input id="service-${index}" data-service-index="${index}" type="text" value="${escapeHtml(service.price)}">`;
 
+      const descOpen = openDescEditors.has(`service:${index}`);
+
       return `
         <div class="field">
           <div class="service-label-row">
             <label for="service-${index}">${escapeHtml(service.name)}</label>
+            <button type="button" class="desc-toggle${descOpen ? " is-open" : ""}" data-service-desc-toggle="${index}" title="تعديل وصف الخدمة">وصف</button>
             <button type="button" class="scope-remove" data-service-remove="${index}" aria-label="إزالة ${escapeHtml(service.name)}" title="إزالة الخدمة">×</button>
           </div>
+          ${descOpen ? `<input type="text" class="desc-input" data-service-desc="${index}" value="${escapeHtml(service.description || "")}" placeholder="وصف يظهر في جدول الخدمات…" aria-label="وصف ${escapeHtml(service.name)}">` : ""}
           ${serviceInput}
         </div>
       `;
@@ -1100,15 +1478,21 @@ function renderEditor() {
     .join("");
 
   const deliverableInputs = quotationData.deliverables
-    .map((item, index) => `
+    .map((item, index) => {
+      const descOpen = openDescEditors.has(`deliverable:${index}`);
+
+      return `
       <div class="scope-check-row">
         <label class="scope-check">
           <input type="checkbox" data-deliverable-item="${index}" ${item.enabled !== false ? "checked" : ""}>
           <span>${escapeHtml(item.name)}</span>
         </label>
+        <button type="button" class="desc-toggle${descOpen ? " is-open" : ""}" data-deliverable-desc-toggle="${index}" title="تعديل وصف المخرج">وصف</button>
         <button type="button" class="scope-remove" data-deliverable-remove="${index}" aria-label="إزالة ${escapeHtml(item.name)}" title="إزالة البند">×</button>
       </div>
-    `)
+      ${descOpen ? `<input type="text" class="desc-input" data-deliverable-desc="${index}" value="${escapeHtml(item.description || "")}" placeholder="وصف يظهر تحت المخرج في العرض…" aria-label="وصف ${escapeHtml(item.name)}">` : ""}
+    `;
+    })
     .join("");
 
   const paymentScheduleInputs = quotationData.paymentSchedule
@@ -1136,15 +1520,21 @@ function renderEditor() {
   const scopeGroupsInputs = quotationData.scopeGroups
     .map((group, groupIndex) => {
       const itemsMarkup = group.items
-        .map((item, itemIndex) => `
+        .map((item, itemIndex) => {
+          const descOpen = openDescEditors.has(`scope:${groupIndex}:${itemIndex}`);
+
+          return `
           <div class="scope-check-row">
             <label class="scope-check">
               <input type="checkbox" data-scope-group="${groupIndex}" data-scope-item="${itemIndex}" ${item.enabled !== false ? "checked" : ""}>
               <span>${escapeHtml(item.name)}</span>
             </label>
+            <button type="button" class="desc-toggle${descOpen ? " is-open" : ""}" data-scope-desc-toggle="${groupIndex}:${itemIndex}" title="تعديل وصف البند">وصف</button>
             <button type="button" class="scope-remove" data-scope-remove="${groupIndex}:${itemIndex}" aria-label="إزالة ${escapeHtml(item.name)}" title="إزالة البند">×</button>
           </div>
-        `)
+          ${descOpen ? `<input type="text" class="desc-input" data-scope-desc="${groupIndex}:${itemIndex}" value="${escapeHtml(item.description || "")}" placeholder="وصف يظهر تحت البند في العرض…" aria-label="وصف ${escapeHtml(item.name)}">` : ""}
+        `;
+        })
         .join("");
 
       return `
@@ -1211,6 +1601,10 @@ function renderEditor() {
 }
 
 let projectSearchQuery = "";
+
+// Which inline description editors are open (keys: "scope:g:i", "service:i") —
+// kept across editor re-renders so toggles don't collapse while working.
+const openDescEditors = new Set();
 
 // Search matches the visible name plus the data a secretary actually remembers:
 // client, city, district, quotation number, project type.
@@ -1287,8 +1681,9 @@ function getProjectRows() {
   ];
 }
 
-// The structured footer strip: rendered from the office's registration/contact fields
-// instead of a pre-designed artwork, so a new office is print-ready without a designer.
+// The structured footer strip: rendered, centered, from the office's registration and
+// contact fields — no pre-designed artwork, so a new office is print-ready without a
+// designer. Until the office fills its data, a screen-only hint shows in the preview.
 function renderFooterStrip() {
   const fieldsData = brandProfile.footerFields;
   const contactCells = [
@@ -1306,6 +1701,10 @@ function renderFooterStrip() {
     ? `<img class="footer-qr" src="${escapeHtml(fieldsData.qrDataUrl)}" alt="رمز الاستجابة السريعة للمكتب">`
     : "";
 
+  if (!contactCells && !registrationCells && !qrMarkup) {
+    return `<div class="footer-strip-hint">أكمِل بيانات التذييل (السجل، الضريبي، التواصل) من إعدادات المكتب لتظهر هنا.</div>`;
+  }
+
   return `
     <div class="footer-strip">
       ${qrMarkup}
@@ -1318,13 +1717,9 @@ function renderFooterStrip() {
 }
 
 function renderFooter(pageNumber, totalPages) {
-  const footerBody = brandProfile.footerMode === "fields"
-    ? renderFooterStrip()
-    : `<img class="brand-footer" src="${escapeHtml(getFooterImageSrc())}" alt="بيانات التواصل الخاصة بالمكتب">`;
-
   return `
     <footer class="doc-footer">
-      ${footerBody}
+      ${renderFooterStrip()}
       <span class="page-number">${pageNumber}/${totalPages}</span>
     </footer>
   `;
@@ -1448,7 +1843,7 @@ function renderScope(totalPages) {
                 ${buildIcon(item.name)}
                 <div>
                   <strong>${escapeHtml(item.name)}</strong>
-                  <small class="scope-description">${escapeHtml(scopeDescriptionMap[item.name] || "")}</small>
+                  <small class="scope-description">${escapeHtml(item.description || "")}</small>
                 </div>
               </li>
             `).join("")}
@@ -1468,7 +1863,7 @@ function renderDeliverables(totalPages) {
       <ul class="deliverables-list">
         ${quotationData.deliverables
           .filter((item) => item.enabled !== false)
-          .map((item) => `<li class="deliverable"><span class="check">✓</span><span>${escapeHtml(item.name)}</span></li>`)
+          .map((item) => `<li class="deliverable"><span class="check">✓</span><div><span>${escapeHtml(item.name)}</span>${item.description ? `<small class="scope-description">${escapeHtml(item.description)}</small>` : ""}</div></li>`)
           .join("")}
       </ul>
       <div class="note">${escapeHtml(quotationData.notes)}</div>
@@ -1721,6 +2116,28 @@ function updateEditorValue(event) {
     return;
   }
 
+  if (input.dataset.scopeDesc !== undefined) {
+    const [groupIndex, itemIndex] = input.dataset.scopeDesc.split(":").map(Number);
+    quotationData.scopeGroups[groupIndex].items[itemIndex].description = input.value;
+    renderPreview();
+    saveActiveProject();
+    return;
+  }
+
+  if (input.dataset.serviceDesc !== undefined) {
+    quotationData.optionalServices[Number(input.dataset.serviceDesc)].description = input.value;
+    renderPreview();
+    saveActiveProject();
+    return;
+  }
+
+  if (input.dataset.deliverableDesc !== undefined) {
+    quotationData.deliverables[Number(input.dataset.deliverableDesc)].description = input.value;
+    renderPreview();
+    saveActiveProject();
+    return;
+  }
+
   if (input.dataset.unit !== undefined && key) {
     const sanitized = sanitizeMoneyInput(input.value);
     if (input.value !== sanitized) {
@@ -1791,7 +2208,7 @@ function addScopeItem(groupIndex) {
     return;
   }
 
-  quotationData.scopeGroups[groupIndex].items.push({ name, enabled: true });
+  quotationData.scopeGroups[groupIndex].items.push({ name, enabled: true, description: "" });
   renderEditor();
   renderPreview();
   saveActiveProject();
@@ -1824,7 +2241,7 @@ function addDeliverable() {
     return;
   }
 
-  quotationData.deliverables.push({ name, enabled: true });
+  quotationData.deliverables.push({ name, enabled: true, description: "" });
   renderEditor();
   renderPreview();
   saveActiveProject();
@@ -1874,6 +2291,25 @@ function removeOptionalService(index) {
   renderEditor();
   renderPreview();
   saveActiveProject();
+}
+
+// Open/close an inline description editor and focus its input when opening.
+function toggleDescEditor(key, inputSelector) {
+  if (openDescEditors.has(key)) {
+    openDescEditors.delete(key);
+  } else {
+    openDescEditors.add(key);
+  }
+
+  renderEditor();
+
+  if (openDescEditors.has(key)) {
+    const descInput = editorForm.querySelector(inputSelector);
+
+    if (descInput) {
+      descInput.focus();
+    }
+  }
 }
 
 function addPaymentPhase() {
@@ -2011,6 +2447,24 @@ editorForm.addEventListener("click", (event) => {
 
   if (serviceRemove) {
     removeOptionalService(Number(serviceRemove.dataset.serviceRemove));
+    return;
+  }
+
+  const scopeDescToggle = event.target.closest("[data-scope-desc-toggle]");
+  if (scopeDescToggle) {
+    toggleDescEditor(`scope:${scopeDescToggle.dataset.scopeDescToggle}`, `[data-scope-desc="${scopeDescToggle.dataset.scopeDescToggle}"]`);
+    return;
+  }
+
+  const serviceDescToggle = event.target.closest("[data-service-desc-toggle]");
+  if (serviceDescToggle) {
+    toggleDescEditor(`service:${serviceDescToggle.dataset.serviceDescToggle}`, `[data-service-desc="${serviceDescToggle.dataset.serviceDescToggle}"]`);
+    return;
+  }
+
+  const deliverableDescToggle = event.target.closest("[data-deliverable-desc-toggle]");
+  if (deliverableDescToggle) {
+    toggleDescEditor(`deliverable:${deliverableDescToggle.dataset.deliverableDescToggle}`, `[data-deliverable-desc="${deliverableDescToggle.dataset.deliverableDescToggle}"]`);
     return;
   }
 
@@ -2548,7 +3002,6 @@ function updateSettingsPreview(id, src) {
 function refreshSettingsPreviews() {
   updateSettingsPreview("settingsLogoPreview", settingsDraft.logoDataUrl || settingsDraft.logoPath);
   updateSettingsPreview("settingsSignaturePreview", settingsDraft.signatureDataUrl || settingsDraft.signaturePath);
-  updateSettingsPreview("settingsFooterImagePreview", settingsDraft.footerImageDataUrl || settingsDraft.footerImagePath);
   updateSettingsPreview("settingsQrPreview", settingsDraft.footerFields.qrDataUrl);
 }
 
@@ -2570,11 +3023,6 @@ function openOfficeSettings() {
   setSettingsValue("settingsPhone", settingsDraft.footerFields.phone);
   setSettingsValue("settingsEmail", settingsDraft.footerFields.email);
   setSettingsValue("settingsWebsite", settingsDraft.footerFields.website);
-
-  const modeInput = settingsForm.querySelector(`[name="footerMode"][value="${settingsDraft.footerMode}"]`);
-  if (modeInput) {
-    modeInput.checked = true;
-  }
 
   const defaultsStatus = settingsForm.querySelector("#settingsDefaultsStatus");
   if (defaultsStatus) {
@@ -2601,8 +3049,6 @@ async function handleSettingsImageUpload(input) {
       settingsDraft.logoDataUrl = dataUrl;
     } else if (input.dataset.settingsImage === "signature") {
       settingsDraft.signatureDataUrl = dataUrl;
-    } else if (input.dataset.settingsImage === "footerImage") {
-      settingsDraft.footerImageDataUrl = dataUrl;
     } else if (input.dataset.settingsImage === "qr") {
       settingsDraft.footerFields.qrDataUrl = dataUrl;
     }
@@ -2629,9 +3075,6 @@ function saveOfficeSettings() {
   settingsDraft.footerFields.phone = getSettingsValue("settingsPhone");
   settingsDraft.footerFields.email = getSettingsValue("settingsEmail");
   settingsDraft.footerFields.website = getSettingsValue("settingsWebsite");
-
-  const checkedMode = settingsForm.querySelector(`[name="footerMode"]:checked`);
-  settingsDraft.footerMode = checkedMode ? checkedMode.value : "image";
 
   brandProfile = settingsDraft;
   settingsDraft = null;
@@ -2693,6 +3136,53 @@ if (officeSettingsBtn && settingsDialog && settingsForm) {
   });
 }
 
-initializeProjects();
-renderApp();
-initializeBackup();
+if (loginForm) {
+  loginForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+
+    if (!cloudState.client) {
+      setLoginMessage("إعدادات Supabase غير مكتملة.");
+      return;
+    }
+
+    const email = loginEmail ? loginEmail.value.trim() : "";
+    const password = loginPassword ? loginPassword.value : "";
+
+    if (!email || !password) {
+      setLoginMessage("أدخل البريد الإلكتروني وكلمة المرور.");
+      return;
+    }
+
+    try {
+      setLoginMessage("جاري تسجيل الدخول...");
+      setSyncStatus("syncing", "جاري تسجيل الدخول...");
+      const { error } = await cloudState.client.auth.signInWithPassword({ email, password });
+
+      if (error) {
+        throw error;
+      }
+
+      setLoginMessage("");
+    } catch (error) {
+      setSyncStatus("error", "فشل تسجيل الدخول");
+      setLoginMessage("بيانات الدخول غير صحيحة أو الاتصال غير متاح.");
+    }
+  });
+}
+
+if (logoutBtn) {
+  logoutBtn.addEventListener("click", async () => {
+    if (cloudState.client) {
+      await cloudState.client.auth.signOut();
+    }
+  });
+}
+
+async function bootstrapApp() {
+  initializeProjects();
+  renderApp();
+  initializeBackup();
+  await initializeCloudSession();
+}
+
+bootstrapApp();
