@@ -155,10 +155,10 @@ test("optional service money fields show contextual Riyal units", () => {
   assert.match(app, /getOptionalServiceDisplayPrice\(service\)/);
 });
 
-test("desktop workspace uses projects right preview center and inputs left", () => {
+test("desktop workspace uses inputs right, preview center, projects left", () => {
   assert.match(html, /class="projects-panel"/);
   assert.match(html, /id="projectsList"/);
-  assert.match(css, /\.workspace\s*{[\s\S]*grid-template-areas:\s*"editor preview projects"/);
+  assert.match(css, /\.workspace\s*{[\s\S]*grid-template-areas:\s*"projects preview editor"/);
   assert.match(css, /\.editor-panel\s*{[\s\S]*grid-area:\s*editor/);
   assert.match(css, /\.preview-shell\s*{[\s\S]*grid-area:\s*preview/);
   assert.match(css, /\.projects-panel\s*{[\s\S]*grid-area:\s*projects/);
@@ -465,4 +465,45 @@ test("backups carry the brand profile so a full office restore works", () => {
   assert.match(app, /app: "oroudy-quotation-editor"/);
   assert.match(app, /brandProfile,\s*\n\s*projects: savedProjects/);
   assert.match(app, /parsed\.brandProfile/);
+});
+
+test("projects panel has a live search with result count", () => {
+  assert.match(html, /id="projectSearch"/);
+  assert.match(html, /id="projectsCount"/);
+  assert.match(app, /function projectMatchesSearch\(project, query\)/);
+  assert.match(app, /projectSearchQuery = projectSearchInput\.value/);
+  assert.match(app, /لا توجد نتائج مطابقة لبحثك/);
+  assert.match(css, /\.projects-search\s*{/);
+});
+
+test("brand colors are office-configurable and scoped to the document", () => {
+  assert.match(app, /colors:\s*{\s*\n\s*primary: "#303640",\s*\n\s*accent: "#dfb86d"/);
+  assert.match(app, /function applyBrandColors\(\)/);
+  assert.match(app, /preview\.style\.setProperty\("--gold", colors\.accent\)/);
+  assert.match(app, /preview\.style\.setProperty\("--navy", colors\.primary\)/);
+  assert.match(app, /function tintColor\(/);
+  assert.match(html, /id="settingsPrimaryColor"/);
+  assert.match(html, /id="settingsAccentColor"/);
+  assert.match(html, /id="settingsResetColorsBtn"/);
+  assert.match(css, /color-mix\(in srgb, var\(--gold\) 14%, transparent\)/);
+});
+
+test("payment phases are fully editable: percent, label, add, remove", () => {
+  assert.match(app, /data-payment-label="\$\{index\}"/);
+  assert.match(app, /data-payment-remove="\$\{index\}"/);
+  assert.match(app, /data-payment-add/);
+  assert.match(app, /function addPaymentPhase\(\)/);
+  assert.match(app, /function removePaymentPhase\(index\)/);
+  assert.match(app, /quotationData\.paymentSchedule\[Number\(input\.dataset\.paymentLabel\)\]\.label = input\.value/);
+  assert.match(css, /\.payment-edit-row\s*{/);
+});
+
+test("financial terms and the annex note are editable", () => {
+  assert.match(app, /data-term-index="\$\{index\}"/);
+  assert.match(app, /data-term-remove="\$\{index\}"/);
+  assert.match(app, /function addFinancialTerm\(\)/);
+  assert.match(app, /function removeFinancialTerm\(index\)/);
+  assert.match(app, /quotationData\.financialTerms\[Number\(input\.dataset\.termIndex\)\] = input\.value/);
+  assert.match(app, /id="optionalAnnexNote" data-key="optionalAnnexNote"/);
+  assert.match(css, /\.term-edit-row\s*{/);
 });

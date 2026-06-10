@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>عروضي — محرر عروض الأسعار</title>
     <link rel="icon" href="assets/app-icon.ico">
-    <link rel="stylesheet" href="styles.css?v=v6">
+    <link rel="stylesheet" href="styles.css?v=v7">
   </head>
   <body>
     <header class="app-header">
@@ -90,6 +90,10 @@
           <button id="saveProjectBtn" class="primary-btn" type="button">حفظ المشروع</button>
           <button id="duplicateProjectBtn" class="secondary-btn" type="button">حفظ كنسخة</button>
         </div>
+        <div class="projects-search">
+          <input id="projectSearch" type="search" placeholder="ابحث باسم العميل أو المدينة أو رقم العرض…" aria-label="البحث في المشاريع">
+          <span id="projectsCount" class="projects-count" aria-live="polite"></span>
+        </div>
         <div id="projectsList" class="projects-list" aria-live="polite"></div>
         <button id="deleteProjectBtn" class="danger-btn" type="button">حذف المشروع الحالي</button>
 
@@ -130,6 +134,20 @@
           <label for="settingsClosingText">نص الخاتمة</label>
           <textarea id="settingsClosingText" placeholder="النص الختامي قبل التوقيع"></textarea>
         </div>
+
+        <h3>ألوان الهوية</h3>
+        <p class="settings-hint">تُطبّق على مستند العرض: العناوين، الخطوط الزخرفية، والتذييل.</p>
+        <div class="settings-grid settings-colors">
+          <div class="field">
+            <label for="settingsPrimaryColor">اللون الأساسي</label>
+            <input id="settingsPrimaryColor" type="color" value="#303640">
+          </div>
+          <div class="field">
+            <label for="settingsAccentColor">اللون المميز</label>
+            <input id="settingsAccentColor" type="color" value="#dfb86d">
+          </div>
+        </div>
+        <button id="settingsResetColorsBtn" class="secondary-btn" type="button">إعادة الألوان الافتراضية</button>
 
         <h3>تذييل الصفحات</h3>
         <div class="field footer-mode-field">
@@ -189,7 +207,7 @@
       </form>
     </dialog>
 
-    <script src="tafqit.js?v=v6"></script>
-    <script src="app.js?v=v6"></script>
+    <script src="tafqit.js?v=v7"></script>
+    <script src="app.js?v=v7"></script>
   </body>
 </html>

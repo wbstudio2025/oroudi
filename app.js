@@ -13,6 +13,12 @@ const defaultBrandProfile = {
   signaturePath: "assets/Signature.png",
   signatureDataUrl: "",
   closingText: "نأمل أن ينال عرضنا هذا استحسانكم، ونتطلع إلى خدمتكم بما يحقق تطلعاتكم.",
+  // Document accent colors: primary drives strong text/strips, accent drives the
+  // decorative lines and highlights. Defaults are the original navy/gold look.
+  colors: {
+    primary: "#303640",
+    accent: "#dfb86d"
+  },
   // "image": a ready-made footer artwork (the legacy Footer.png look).
   // "fields": a structured strip rendered from the fields below — no designer needed.
   footerMode: "image",
@@ -44,11 +50,42 @@ function loadBrandProfile() {
     return {
       ...cloneData(defaultBrandProfile),
       ...parsed,
+      colors: { ...cloneData(defaultBrandProfile.colors), ...(parsed.colors || {}) },
       footerFields: { ...cloneData(defaultBrandProfile.footerFields), ...(parsed.footerFields || {}) }
     };
   } catch (error) {
     return cloneData(defaultBrandProfile);
   }
+}
+
+// A light tint of a brand color (mixed toward white) for soft backgrounds and borders.
+function tintColor(hexColor, ratio = 0.78) {
+  const hex = String(hexColor || "").replace("#", "");
+
+  if (!/^[0-9a-fA-F]{6}$/.test(hex)) {
+    return "#f3e5c6";
+  }
+
+  const channels = [0, 2, 4].map((offset) => {
+    const value = parseInt(hex.slice(offset, offset + 2), 16);
+    return Math.round(value + (255 - value) * ratio).toString(16).padStart(2, "0");
+  });
+
+  return `#${channels.join("")}`;
+}
+
+// The brand colors are scoped to the preview (the document), so the app shell keeps
+// the product's own look while every office prints in its identity.
+function applyBrandColors() {
+  if (!preview) {
+    return;
+  }
+
+  const colors = brandProfile.colors || defaultBrandProfile.colors;
+  preview.style.setProperty("--navy", colors.primary);
+  preview.style.setProperty("--gold", colors.accent);
+  preview.style.setProperty("--brand-gold", colors.accent);
+  preview.style.setProperty("--gold-soft", tintColor(colors.accent));
 }
 
 function persistBrandProfile() {
@@ -1076,9 +1113,22 @@ function renderEditor() {
 
   const paymentScheduleInputs = quotationData.paymentSchedule
     .map((payment, index) => `
-      <div class="field payment-field">
-        <label for="payment-percent-${index}">${escapeHtml(payment.label)}</label>
-        <input id="payment-percent-${index}" data-payment-index="${index}" type="text" inputmode="decimal" value="${escapeHtml(payment.percent)}">
+      <div class="payment-edit-row">
+        <div class="money-input-row payment-percent">
+          <input id="payment-percent-${index}" data-payment-index="${index}" type="text" inputmode="decimal" value="${escapeHtml(payment.percent)}" aria-label="نسبة الدفعة">
+          <span>%</span>
+        </div>
+        <input data-payment-label="${index}" type="text" value="${escapeHtml(payment.label)}" placeholder="وصف الدفعة" aria-label="وصف الدفعة">
+        <button type="button" class="scope-remove" data-payment-remove="${index}" aria-label="إزالة الدفعة" title="إزالة الدفعة">×</button>
+      </div>
+    `)
+    .join("");
+
+  const financialTermInputs = quotationData.financialTerms
+    .map((term, index) => `
+      <div class="term-edit-row">
+        <input data-term-index="${index}" type="text" value="${escapeHtml(term)}" aria-label="شرط مالي">
+        <button type="button" class="scope-remove" data-term-remove="${index}" aria-label="إزالة الشرط" title="إزالة الشرط">×</button>
       </div>
     `)
     .join("");
@@ -1125,9 +1175,21 @@ function renderEditor() {
         <button type="button" class="scope-add" data-deliverable-add>إضافة</button>
       </div>
     </section>
-    <section class="form-group">
-      <h3>نسب جدول الدفعات والضريبة</h3>
+    <section class="form-group scope-editor">
+      <h3>الشروط المالية</h3>
+      ${financialTermInputs}
+      <div class="scope-add-row">
+        <input type="text" data-term-add-input placeholder="إضافة شرط جديد…" aria-label="إضافة شرط مالي جديد">
+        <button type="button" class="scope-add" data-term-add>إضافة</button>
+      </div>
+    </section>
+    <section class="form-group scope-editor">
+      <h3>جدول الدفعات والضريبة</h3>
+      <p class="scope-hint">النسبة والوصف لكل دفعة، ويمكن إضافة دفعات أو حذفها. الضريبة 15% تُحسب تلقائياً.</p>
       ${paymentScheduleInputs}
+      <div class="scope-add-row">
+        <button type="button" class="scope-add" data-payment-add>إضافة دفعة</button>
+      </div>
     </section>
     <section class="form-group">
       <h3>أسعار الخدمات الاختيارية</h3>
@@ -1140,8 +1202,34 @@ function renderEditor() {
         <input type="text" data-service-add-name placeholder="إضافة خدمة جديدة…" aria-label="إضافة خدمة اختيارية جديدة">
         <button type="button" class="scope-add" data-service-add>إضافة</button>
       </div>
+      <div class="field">
+        <label for="optionalAnnexNote">ملاحظة ملحق الخدمات</label>
+        <textarea id="optionalAnnexNote" data-key="optionalAnnexNote" placeholder="ملاحظة تظهر أسفل جدول الخدمات الاختيارية">${escapeHtml(quotationData.optionalAnnexNote)}</textarea>
+      </div>
     </section>
   `;
+}
+
+let projectSearchQuery = "";
+
+// Search matches the visible name plus the data a secretary actually remembers:
+// client, city, district, quotation number, project type.
+function projectMatchesSearch(project, query) {
+  if (!query) {
+    return true;
+  }
+
+  const projectData = project.data || {};
+  const haystack = [
+    project.name,
+    projectData.clientName,
+    projectData.city,
+    projectData.district,
+    projectData.quotationNumber,
+    projectData.projectType
+  ].filter(Boolean).join(" ").toLowerCase();
+
+  return query.toLowerCase().trim().split(/\s+/).every((word) => haystack.includes(word));
 }
 
 function renderProjectsPanel() {
@@ -1149,7 +1237,16 @@ function renderProjectsPanel() {
     return;
   }
 
-  const projects = savedProjects
+  const matchingProjects = savedProjects.filter((project) => projectMatchesSearch(project, projectSearchQuery));
+  const projectsCount = document.querySelector("#projectsCount");
+
+  if (projectsCount) {
+    projectsCount.textContent = projectSearchQuery
+      ? `${matchingProjects.length} من ${savedProjects.length}`
+      : `${savedProjects.length} ${savedProjects.length === 1 ? "مشروع" : "مشاريع"}`;
+  }
+
+  const projects = matchingProjects
     .map((project) => {
       const activeClass = project.id === activeProjectId ? " is-active" : "";
       const projectData = project.data || {};
@@ -1168,7 +1265,11 @@ function renderProjectsPanel() {
     })
     .join("");
 
-  projectsList.innerHTML = projects || `<p class="empty-projects">لا توجد مشاريع محفوظة بعد.</p>`;
+  const emptyMessage = projectSearchQuery
+    ? `<p class="empty-projects">لا توجد نتائج مطابقة لبحثك.</p>`
+    : `<p class="empty-projects">لا توجد مشاريع محفوظة بعد.</p>`;
+
+  projectsList.innerHTML = projects || emptyMessage;
   renderSaveStatus();
 }
 
@@ -1571,6 +1672,7 @@ function setPreviewZoom(zoomMode) {
 
 function renderApp() {
   renderShellBrand();
+  applyBrandColors();
   renderEditor();
   renderPreview();
   renderProjectsPanel();
@@ -1667,6 +1769,14 @@ function updateEditorValue(event) {
 
   if (paymentIndex !== undefined) {
     quotationData.paymentSchedule[Number(paymentIndex)].percent = input.value;
+  }
+
+  if (input.dataset.paymentLabel !== undefined) {
+    quotationData.paymentSchedule[Number(input.dataset.paymentLabel)].label = input.value;
+  }
+
+  if (input.dataset.termIndex !== undefined) {
+    quotationData.financialTerms[Number(input.dataset.termIndex)] = input.value;
   }
 
   renderPreview();
@@ -1766,6 +1876,60 @@ function removeOptionalService(index) {
   saveActiveProject();
 }
 
+function addPaymentPhase() {
+  quotationData.paymentSchedule.push({ percent: "", label: "" });
+  renderEditor();
+  renderPreview();
+  saveActiveProject();
+
+  const rows = editorForm.querySelectorAll("[data-payment-index]");
+  const lastRow = rows[rows.length - 1];
+  if (lastRow) {
+    lastRow.focus();
+  }
+}
+
+function removePaymentPhase(index) {
+  if (!quotationData.paymentSchedule[index]) {
+    return;
+  }
+
+  quotationData.paymentSchedule.splice(index, 1);
+  renderEditor();
+  renderPreview();
+  saveActiveProject();
+}
+
+function addFinancialTerm() {
+  const input = editorForm.querySelector("[data-term-add-input]");
+  const term = input ? input.value.trim() : "";
+
+  if (!term) {
+    return;
+  }
+
+  quotationData.financialTerms.push(term);
+  renderEditor();
+  renderPreview();
+  saveActiveProject();
+
+  const nextInput = editorForm.querySelector("[data-term-add-input]");
+  if (nextInput) {
+    nextInput.focus();
+  }
+}
+
+function removeFinancialTerm(index) {
+  if (quotationData.financialTerms[index] === undefined) {
+    return;
+  }
+
+  quotationData.financialTerms.splice(index, 1);
+  renderEditor();
+  renderPreview();
+  saveActiveProject();
+}
+
 // A lone text input submits the form on Enter, which would reload the page; block that.
 editorForm.addEventListener("submit", (event) => event.preventDefault());
 
@@ -1783,6 +1947,9 @@ editorForm.addEventListener("keydown", (event) => {
   } else if (event.target.matches("[data-service-add-name]")) {
     event.preventDefault();
     addOptionalService();
+  } else if (event.target.matches("[data-term-add-input]")) {
+    event.preventDefault();
+    addFinancialTerm();
   }
 });
 
@@ -1795,6 +1962,15 @@ projectsList.addEventListener("click", (event) => {
     switchProject(projectButton.dataset.projectId);
   }
 });
+
+const projectSearchInput = document.querySelector("#projectSearch");
+
+if (projectSearchInput) {
+  projectSearchInput.addEventListener("input", () => {
+    projectSearchQuery = projectSearchInput.value;
+    renderProjectsPanel();
+  });
+}
 
 editorForm.addEventListener("click", (event) => {
   const scopeAdd = event.target.closest("[data-scope-add]");
@@ -1835,6 +2011,28 @@ editorForm.addEventListener("click", (event) => {
 
   if (serviceRemove) {
     removeOptionalService(Number(serviceRemove.dataset.serviceRemove));
+    return;
+  }
+
+  if (event.target.closest("[data-payment-add]")) {
+    addPaymentPhase();
+    return;
+  }
+
+  const paymentRemove = event.target.closest("[data-payment-remove]");
+  if (paymentRemove) {
+    removePaymentPhase(Number(paymentRemove.dataset.paymentRemove));
+    return;
+  }
+
+  if (event.target.closest("[data-term-add]")) {
+    addFinancialTerm();
+    return;
+  }
+
+  const termRemove = event.target.closest("[data-term-remove]");
+  if (termRemove) {
+    removeFinancialTerm(Number(termRemove.dataset.termRemove));
     return;
   }
 
@@ -2356,8 +2554,15 @@ function refreshSettingsPreviews() {
 
 function openOfficeSettings() {
   settingsDraft = cloneData(brandProfile);
+
+  if (!settingsDraft.colors) {
+    settingsDraft.colors = cloneData(defaultBrandProfile.colors);
+  }
+
   setSettingsValue("settingsCompanyName", settingsDraft.companyName);
   setSettingsValue("settingsClosingText", settingsDraft.closingText);
+  setSettingsValue("settingsPrimaryColor", settingsDraft.colors.primary);
+  setSettingsValue("settingsAccentColor", settingsDraft.colors.accent);
   setSettingsValue("settingsCr", settingsDraft.footerFields.crNumber);
   setSettingsValue("settingsVat", settingsDraft.footerFields.vatNumber);
   setSettingsValue("settingsAccreditation", settingsDraft.footerFields.accreditation);
@@ -2413,6 +2618,10 @@ async function handleSettingsImageUpload(input) {
 function saveOfficeSettings() {
   settingsDraft.companyName = getSettingsValue("settingsCompanyName") || defaultBrandProfile.companyName;
   settingsDraft.closingText = getSettingsValue("settingsClosingText") || defaultBrandProfile.closingText;
+  settingsDraft.colors = {
+    primary: getSettingsValue("settingsPrimaryColor") || defaultBrandProfile.colors.primary,
+    accent: getSettingsValue("settingsAccentColor") || defaultBrandProfile.colors.accent
+  };
   settingsDraft.footerFields.crNumber = getSettingsValue("settingsCr");
   settingsDraft.footerFields.vatNumber = getSettingsValue("settingsVat");
   settingsDraft.footerFields.accreditation = getSettingsValue("settingsAccreditation");
@@ -2452,6 +2661,13 @@ if (officeSettingsBtn && settingsDialog && settingsForm) {
       event.preventDefault();
       settingsDraft = null;
       settingsDialog.close();
+      return;
+    }
+
+    if (event.target.closest("#settingsResetColorsBtn")) {
+      event.preventDefault();
+      setSettingsValue("settingsPrimaryColor", defaultBrandProfile.colors.primary);
+      setSettingsValue("settingsAccentColor", defaultBrandProfile.colors.accent);
       return;
     }
 
