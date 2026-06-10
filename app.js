@@ -1,9 +1,75 @@
-const quotationData = {
+const BRAND_PROFILE_STORAGE_KEY = "oroudyBrandProfile";
+
+/* The brand profile is the office's identity and templates: everything that belongs to
+   the office rather than to a single quotation. The app ships with the Dural Nafis
+   profile as the seed; any office can replace all of it from إعدادات المكتب without
+   touching code. Persisted separately from projects so a logo or footer change applies
+   to every quotation at once. */
+const defaultBrandProfile = {
+  version: 1,
   companyName: "شركة الدر النفيس للاستشارات الهندسية",
   logoPath: "assets/LOGO.png",
-  footerImagePath: "assets/Footer.png",
+  logoDataUrl: "",
   signaturePath: "assets/Signature.png",
+  signatureDataUrl: "",
   closingText: "نأمل أن ينال عرضنا هذا استحسانكم، ونتطلع إلى خدمتكم بما يحقق تطلعاتكم.",
+  // "image": a ready-made footer artwork (the legacy Footer.png look).
+  // "fields": a structured strip rendered from the fields below — no designer needed.
+  footerMode: "image",
+  footerImagePath: "assets/Footer.png",
+  footerImageDataUrl: "",
+  footerFields: {
+    crNumber: "",
+    vatNumber: "",
+    accreditation: "",
+    address: "",
+    phone: "",
+    email: "",
+    website: "",
+    qrDataUrl: ""
+  },
+  // Optional overrides of the new-quotation template (scope, deliverables, payment plan…)
+  // captured via "حفظ القوائم الحالية كافتراضية للمكتب" in the settings dialog.
+  defaults: null
+};
+
+function loadBrandProfile() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(BRAND_PROFILE_STORAGE_KEY) || "null");
+
+    if (!parsed || typeof parsed !== "object") {
+      return cloneData(defaultBrandProfile);
+    }
+
+    return {
+      ...cloneData(defaultBrandProfile),
+      ...parsed,
+      footerFields: { ...cloneData(defaultBrandProfile.footerFields), ...(parsed.footerFields || {}) }
+    };
+  } catch (error) {
+    return cloneData(defaultBrandProfile);
+  }
+}
+
+function persistBrandProfile() {
+  localStorage.setItem(BRAND_PROFILE_STORAGE_KEY, JSON.stringify(brandProfile));
+}
+
+function getLogoSrc() {
+  return brandProfile.logoDataUrl || brandProfile.logoPath;
+}
+
+function getSignatureSrc() {
+  return brandProfile.signatureDataUrl || brandProfile.signaturePath;
+}
+
+function getFooterImageSrc() {
+  return brandProfile.footerImageDataUrl || brandProfile.footerImagePath;
+}
+
+let brandProfile = loadBrandProfile();
+
+const quotationData = {
   quotationNumber: "",
   dateIso: "2026-05-17",
   date: "17 مايو 2026",
@@ -24,6 +90,8 @@ const quotationData = {
   deedGregorian: "",
   mainPriceNumber: "",
   mainPriceWritten: "",
+  mainPriceWrittenManual: false,
+  bilingual: false,
   notes: "يشمل العرض منظوراً خارجياً واحداً فقط للواجهة الرئيسية. أي مناظير إضافية أو خدمات تصميم داخلي يتم تسعيرها ضمن الخدمات الاختيارية.",
   showOptionalAnnex: true,
   scopeGroups: [
@@ -56,13 +124,13 @@ const quotationData = {
     }
   ],
   deliverables: [
-    "مخططات معمارية للرخصة",
-    "مخططات إنشائية",
-    "مخططات كهربائية",
-    "مخططات ميكانيكية",
-    "منظور خارجي واحد للواجهة الرئيسية",
-    "ملفات PDF للاعتماد",
-    "متابعة إصدار رخصة البناء"
+    { name: "مخططات معمارية للرخصة", enabled: true },
+    { name: "مخططات إنشائية", enabled: true },
+    { name: "مخططات كهربائية", enabled: true },
+    { name: "مخططات ميكانيكية", enabled: true },
+    { name: "منظور خارجي واحد للواجهة الرئيسية", enabled: true },
+    { name: "ملفات PDF للاعتماد", enabled: true },
+    { name: "متابعة إصدار رخصة البناء", enabled: true }
   ],
   financialTerms: [
     "القيمة لا تشمل ضريبة القيمة المضافة",
@@ -198,7 +266,8 @@ const fields = [
       ["clientName", "اسم العميل"],
       ["quotationNumber", "رقم العرض"],
       ["date", "التاريخ", "date"],
-      ["validityPeriod", "مدة صلاحية العرض", "unit:أيام"]
+      ["validityPeriod", "مدة صلاحية العرض", "unit:أيام"],
+      ["bilingual", "إظهار العناوين بالإنجليزية", "checkbox"]
     ]
   },
   {
@@ -315,7 +384,14 @@ function dateFieldFor(key) {
 }
 
 setQuotationDate(quotationData.dateIso);
-const initialSnapshot = JSON.stringify(quotationData);
+const baseTemplateSnapshot = JSON.stringify(quotationData);
+
+// New quotations start from the base template merged with the office's saved defaults
+// (brandProfile.defaults), so each office's usual lists and payment plan come pre-filled.
+function getDefaultQuotationData() {
+  const base = JSON.parse(baseTemplateSnapshot);
+  return brandProfile.defaults ? { ...base, ...cloneData(brandProfile.defaults) } : base;
+}
 const datePickerMonths = {
   quotation: quotationData.dateIso,
   deed: quotationData.deedDateIso || quotationData.dateIso
@@ -530,8 +606,19 @@ function getActiveProject() {
 function migrateProjectData(data) {
   const migratedData = cloneData(data);
 
+  // Office identity used to live inside each saved quotation; it now lives in the
+  // brand profile, so stale per-project copies are dropped.
+  ["companyName", "logoPath", "footerImagePath", "signaturePath", "closingText"].forEach((key) => {
+    delete migratedData[key];
+  });
+
   if (!migratedData.clientTitle) {
     migratedData.clientTitle = "السيد";
+  }
+
+  // Quotations saved before auto-tafqit had a hand-typed written amount; keep it.
+  if (migratedData.mainPriceWrittenManual === undefined && String(migratedData.mainPriceWritten || "").trim()) {
+    migratedData.mainPriceWrittenManual = true;
   }
 
   if (Array.isArray(migratedData.paymentSchedule)) {
@@ -556,12 +643,19 @@ function migrateProjectData(data) {
     }));
   }
 
+  // Deliverables follow the same string → { name, enabled } migration as scope items.
+  if (Array.isArray(migratedData.deliverables)) {
+    migratedData.deliverables = migratedData.deliverables.map((item) =>
+      typeof item === "string" ? { name: item, enabled: true } : { name: item.name, enabled: item.enabled !== false }
+    );
+  }
+
   return migratedData;
 }
 
 function applyProjectData(data) {
   const nextData = {
-    ...JSON.parse(initialSnapshot),
+    ...getDefaultQuotationData(),
     ...migrateProjectData(data)
   };
 
@@ -572,7 +666,7 @@ function applyProjectData(data) {
   datePickerMonths.deed = quotationData.deedDateIso || quotationData.dateIso;
 }
 
-function createProject(data = JSON.parse(initialSnapshot), name = getProjectName(data)) {
+function createProject(data = getDefaultQuotationData(), name = getProjectName(data)) {
   const now = new Date().toISOString();
 
   return {
@@ -620,7 +714,7 @@ function saveActiveProject() {
 function createNewProject() {
   saveActiveProject();
 
-  const nextProject = createProject(JSON.parse(initialSnapshot), "مشروع جديد");
+  const nextProject = createProject(getDefaultQuotationData(), "مشروع جديد");
   savedProjects.unshift(nextProject);
   activeProjectId = nextProject.id;
   applyProjectData(nextProject.data);
@@ -655,7 +749,7 @@ function deleteActiveProject() {
   savedProjects = savedProjects.filter((savedProject) => savedProject.id !== project.id);
 
   if (!savedProjects.length) {
-    const replacementProject = createProject(JSON.parse(initialSnapshot), "مشروع جديد");
+    const replacementProject = createProject(getDefaultQuotationData(), "مشروع جديد");
     savedProjects = [replacementProject];
   }
 
@@ -958,11 +1052,26 @@ function renderEditor() {
 
       return `
         <div class="field">
-          <label for="service-${index}">${escapeHtml(service.name)}</label>
+          <div class="service-label-row">
+            <label for="service-${index}">${escapeHtml(service.name)}</label>
+            <button type="button" class="scope-remove" data-service-remove="${index}" aria-label="إزالة ${escapeHtml(service.name)}" title="إزالة الخدمة">×</button>
+          </div>
           ${serviceInput}
         </div>
       `;
     })
+    .join("");
+
+  const deliverableInputs = quotationData.deliverables
+    .map((item, index) => `
+      <div class="scope-check-row">
+        <label class="scope-check">
+          <input type="checkbox" data-deliverable-item="${index}" ${item.enabled !== false ? "checked" : ""}>
+          <span>${escapeHtml(item.name)}</span>
+        </label>
+        <button type="button" class="scope-remove" data-deliverable-remove="${index}" aria-label="إزالة ${escapeHtml(item.name)}" title="إزالة البند">×</button>
+      </div>
+    `)
     .join("");
 
   const paymentScheduleInputs = quotationData.paymentSchedule
@@ -1008,6 +1117,14 @@ function renderEditor() {
       <p class="scope-hint">البنود المحددة تظهر في العرض. أزِل التحديد لإخفاء بند دون حذفه، أو أضِف بنوداً جديدة.</p>
       ${scopeGroupsInputs}
     </section>
+    <section class="form-group scope-editor">
+      <h3>المخرجات المتوقعة</h3>
+      ${deliverableInputs}
+      <div class="scope-add-row">
+        <input type="text" data-deliverable-add-input placeholder="إضافة مخرج جديد…" aria-label="إضافة مخرج جديد">
+        <button type="button" class="scope-add" data-deliverable-add>إضافة</button>
+      </div>
+    </section>
     <section class="form-group">
       <h3>نسب جدول الدفعات والضريبة</h3>
       ${paymentScheduleInputs}
@@ -1019,6 +1136,10 @@ function renderEditor() {
         <input id="showOptionalAnnex" data-key="showOptionalAnnex" type="checkbox" ${quotationData.showOptionalAnnex ? "checked" : ""}>
       </div>
       ${optionalServiceInputs}
+      <div class="scope-add-row">
+        <input type="text" data-service-add-name placeholder="إضافة خدمة جديدة…" aria-label="إضافة خدمة اختيارية جديدة">
+        <button type="button" class="scope-add" data-service-add>إضافة</button>
+      </div>
     </section>
   `;
 }
@@ -1065,10 +1186,44 @@ function getProjectRows() {
   ];
 }
 
+// The structured footer strip: rendered from the office's registration/contact fields
+// instead of a pre-designed artwork, so a new office is print-ready without a designer.
+function renderFooterStrip() {
+  const fieldsData = brandProfile.footerFields;
+  const contactCells = [
+    fieldsData.phone && `<span class="footer-cell">هاتف: ${escapeHtml(fieldsData.phone)}</span>`,
+    fieldsData.email && `<span class="footer-cell">${escapeHtml(fieldsData.email)}</span>`,
+    fieldsData.website && `<span class="footer-cell">${escapeHtml(fieldsData.website)}</span>`,
+    fieldsData.address && `<span class="footer-cell">${escapeHtml(fieldsData.address)}</span>`
+  ].filter(Boolean).join("");
+  const registrationCells = [
+    fieldsData.crNumber && `س.ت: ${escapeHtml(fieldsData.crNumber)}`,
+    fieldsData.vatNumber && `الرقم الضريبي: ${escapeHtml(fieldsData.vatNumber)}`,
+    fieldsData.accreditation && `اعتماد الهيئة السعودية للمهندسين: ${escapeHtml(fieldsData.accreditation)}`
+  ].filter(Boolean).join(" · ");
+  const qrMarkup = fieldsData.qrDataUrl
+    ? `<img class="footer-qr" src="${escapeHtml(fieldsData.qrDataUrl)}" alt="رمز الاستجابة السريعة للمكتب">`
+    : "";
+
+  return `
+    <div class="footer-strip">
+      ${qrMarkup}
+      <div class="footer-strip-text">
+        <div class="footer-contacts">${contactCells}</div>
+        ${registrationCells ? `<div class="footer-registrations">${registrationCells}</div>` : ""}
+      </div>
+    </div>
+  `;
+}
+
 function renderFooter(pageNumber, totalPages) {
+  const footerBody = brandProfile.footerMode === "fields"
+    ? renderFooterStrip()
+    : `<img class="brand-footer" src="${escapeHtml(getFooterImageSrc())}" alt="بيانات التواصل الخاصة بالمكتب">`;
+
   return `
     <footer class="doc-footer">
-      <img class="brand-footer" src="${escapeHtml(quotationData.footerImagePath)}" alt="بيانات التواصل الخاصة بشركة الدر النفيس">
+      ${footerBody}
       <span class="page-number">${pageNumber}/${totalPages}</span>
     </footer>
   `;
@@ -1077,9 +1232,9 @@ function renderFooter(pageNumber, totalPages) {
 function renderClosingBlock() {
   return `
     <section class="closing-block">
-      <p>${escapeHtml(quotationData.closingText)}</p>
+      <p>${escapeHtml(brandProfile.closingText)}</p>
       <p class="closing-regards">وتفضلوا بقبول فائق الاحترام والتقدير</p>
-      <img class="closing-signature" src="${escapeHtml(quotationData.signaturePath)}" alt="توقيع وختم شركة الدر النفيس للاستشارات الهندسية">
+      <img class="closing-signature" src="${escapeHtml(getSignatureSrc())}" alt="توقيع وختم المكتب">
     </section>
   `;
 }
@@ -1093,18 +1248,32 @@ function renderDatePair() {
   `;
 }
 
+// English page titles shown under the Arabic ones when the bilingual option is on.
+const pageTitleTranslations = {
+  "ملخص المشروع": "Project Summary",
+  "نطاق الأعمال": "Scope of Work",
+  "المخرجات المتوقعة": "Deliverables",
+  "العرض المالي": "Financial Proposal",
+  "ملحق الخدمات الاختيارية": "Optional Services Annex"
+};
+
+function renderPageTitle(title) {
+  const english = quotationData.bilingual && pageTitleTranslations[title];
+  return `<h2 class="page-title">${title}${english ? `<span class="page-title-en">${escapeHtml(english)}</span>` : ""}</h2>`;
+}
+
 function pageShell(title, body, pageNumber, totalPages, isLast = false) {
   return `
     <article class="page${isLast ? " is-last-page" : ""}">
       <div class="page-content">
         <header class="doc-header">
           <div>
-            <div class="doc-company">${escapeHtml(quotationData.companyName)}</div>
+            <div class="doc-company">${escapeHtml(brandProfile.companyName)}</div>
             <div class="doc-meta">عرض رقم ${escapeHtml(quotationData.quotationNumber)} · ${renderDatePair()}</div>
           </div>
-          <img class="doc-logo" src="${escapeHtml(quotationData.logoPath)}" alt="">
+          <img class="doc-logo" src="${escapeHtml(getLogoSrc())}" alt="">
         </header>
-        <h2 class="page-title">${title}</h2>
+        ${renderPageTitle(title)}
         ${body}
         ${isLast ? "" : renderFooter(pageNumber, totalPages)}
       </div>
@@ -1117,11 +1286,11 @@ function renderCover(totalPages) {
     <article class="page cover">
       <div class="page-content">
         <div class="cover-top">
-          <img class="cover-logo" src="${escapeHtml(quotationData.logoPath)}" alt="">
-          <div class="cover-badge">عرض سعر رسمي</div>
+          <img class="cover-logo" src="${escapeHtml(getLogoSrc())}" alt="">
+          <div class="cover-badge">عرض سعر رسمي${quotationData.bilingual ? `<span class="cover-badge-en">Official Price Quotation</span>` : ""}</div>
         </div>
         <section class="cover-title">
-          <p class="kicker">${escapeHtml(quotationData.companyName)}</p>
+          <p class="kicker">${escapeHtml(brandProfile.companyName)}</p>
           <h2>${escapeHtml(getPermitTitle())}</h2>
           <p>${escapeHtml(quotationData.projectType)} — ${ph(quotationData.city, "المدينة")}</p>
         </section>
@@ -1148,7 +1317,7 @@ function renderSummary(totalPages) {
     "ملخص المشروع",
     `
       <p class="intro">
-        بناءً على بيانات الأرض المقدمة، تقدم ${escapeHtml(quotationData.companyName)} عرضها لتصميم وإصدار رخصة بناء
+        بناءً على بيانات الأرض المقدمة، تقدم ${escapeHtml(brandProfile.companyName)} عرضها لتصميم وإصدار رخصة بناء
         ل${escapeHtml(quotationData.projectType)} في حي ${ph(quotationData.district, "الحي")} بمدينة ${ph(quotationData.city, "المدينة")}،
         من خلال باقة متكاملة تشمل الدراسات الأولية، التصميم المعماري، المخططات الهندسية، المنظور الخارجي،
         وإجراءات إصدار رخصة البناء.
@@ -1196,7 +1365,10 @@ function renderDeliverables(totalPages) {
     "المخرجات المتوقعة",
     `
       <ul class="deliverables-list">
-        ${quotationData.deliverables.map((item) => `<li class="deliverable"><span class="check">✓</span><span>${escapeHtml(item)}</span></li>`).join("")}
+        ${quotationData.deliverables
+          .filter((item) => item.enabled !== false)
+          .map((item) => `<li class="deliverable"><span class="check">✓</span><span>${escapeHtml(item.name)}</span></li>`)
+          .join("")}
       </ul>
       <div class="note">${escapeHtml(quotationData.notes)}</div>
     `,
@@ -1205,12 +1377,44 @@ function renderDeliverables(totalPages) {
   );
 }
 
+// Offer date + validity period (in days) → the explicit expiry date, both calendars.
+function getValidUntilText() {
+  const days = parseInt(String(quotationData.validityPeriod).replace(/[^\d]/g, ""), 10);
+
+  if (!days || !quotationData.dateIso) {
+    return "";
+  }
+
+  const expiry = dateFromIso(quotationData.dateIso);
+  expiry.setDate(expiry.getDate() + days);
+  const expiryIso = isoFromDate(expiry);
+
+  return `${formatGregorianDate(expiryIso)} (${formatHijriDate(expiryIso)})`;
+}
+
+function getGrandTotal() {
+  const subtotal = parseMoneyAmount(quotationData.mainPriceNumber);
+  return subtotal ? subtotal * 1.15 : 0;
+}
+
 function renderFinancial(totalPages) {
+  const validUntil = getValidUntilText();
   const terms = [
     ...quotationData.financialTerms,
-    `العرض صالح لمدة ${quotationData.validityPeriod}`
+    `العرض صالح لمدة ${quotationData.validityPeriod}${validUntil ? ` — حتى تاريخ ${validUntil}` : ""}`
   ];
   const closingBlock = quotationData.showOptionalAnnex ? "" : renderClosingBlock();
+  const grandTotal = getGrandTotal();
+  const grandTotalWords = grandTotal && typeof tafqitRiyals === "function" ? tafqitRiyals(grandTotal) : "";
+  const grandTotalMarkup = grandTotal
+    ? `
+      <div class="grand-total-row">
+        <span>الإجمالي شامل ضريبة القيمة المضافة 15%</span>
+        <strong>${formatMoneyAmount(grandTotal)} ريال</strong>
+        ${grandTotalWords ? `<em>${escapeHtml(grandTotalWords)}</em>` : ""}
+      </div>
+    `
+    : "";
 
   return pageShell(
     "العرض المالي",
@@ -1219,6 +1423,7 @@ function renderFinancial(totalPages) {
         <span>القيمة الأساسية للعرض</span>
         <strong>${ph(formatRiyalAmount(quotationData.mainPriceNumber), "قيمة العرض")}</strong>
         <em>${ph(quotationData.mainPriceWritten, "القيمة كتابةً")}</em>
+        ${grandTotalMarkup}
       </div>
       <ul class="terms-list">
         ${terms.map((term) => `<li>${escapeHtml(term)}</li>`).join("")}
@@ -1365,6 +1570,7 @@ function setPreviewZoom(zoomMode) {
 }
 
 function renderApp() {
+  renderShellBrand();
   renderEditor();
   renderPreview();
   renderProjectsPanel();
@@ -1406,6 +1612,13 @@ function updateEditorValue(event) {
     return;
   }
 
+  if (input.dataset.deliverableItem !== undefined) {
+    quotationData.deliverables[Number(input.dataset.deliverableItem)].enabled = input.checked;
+    renderPreview();
+    saveActiveProject();
+    return;
+  }
+
   if (input.dataset.unit !== undefined && key) {
     const sanitized = sanitizeMoneyInput(input.value);
     if (input.value !== sanitized) {
@@ -1426,6 +1639,26 @@ function updateEditorValue(event) {
 
   if (key) {
     quotationData[key] = input.dataset.moneyKey !== undefined ? formatRiyalAmount(input.value) : input.type === "checkbox" ? input.checked : input.value;
+  }
+
+  // The written amount (تفقيط) follows the figure automatically; typing in the field
+  // takes manual control, and clearing it hands control back to the automatic text.
+  if (key === "mainPriceNumber" && !quotationData.mainPriceWrittenManual) {
+    quotationData.mainPriceWritten = tafqitRiyals(parseMoneyAmount(quotationData.mainPriceNumber));
+    const writtenInput = editorForm.querySelector("#mainPriceWritten");
+
+    if (writtenInput) {
+      writtenInput.value = quotationData.mainPriceWritten;
+    }
+  }
+
+  if (key === "mainPriceWritten") {
+    quotationData.mainPriceWrittenManual = input.value.trim() !== "";
+
+    if (!quotationData.mainPriceWrittenManual) {
+      quotationData.mainPriceWritten = tafqitRiyals(parseMoneyAmount(quotationData.mainPriceNumber));
+      input.value = quotationData.mainPriceWritten;
+    }
   }
 
   if (serviceIndex !== undefined) {
@@ -1472,13 +1705,84 @@ function removeScopeItem(groupIndex, itemIndex) {
   saveActiveProject();
 }
 
+// Deliverables and optional services use the same add/toggle/remove pattern as scope items.
+function addDeliverable() {
+  const input = editorForm.querySelector("[data-deliverable-add-input]");
+  const name = input ? input.value.trim() : "";
+
+  if (!name) {
+    return;
+  }
+
+  quotationData.deliverables.push({ name, enabled: true });
+  renderEditor();
+  renderPreview();
+  saveActiveProject();
+
+  const nextInput = editorForm.querySelector("[data-deliverable-add-input]");
+  if (nextInput) {
+    nextInput.focus();
+  }
+}
+
+function removeDeliverable(index) {
+  if (!quotationData.deliverables[index]) {
+    return;
+  }
+
+  quotationData.deliverables.splice(index, 1);
+  renderEditor();
+  renderPreview();
+  saveActiveProject();
+}
+
+function addOptionalService() {
+  const input = editorForm.querySelector("[data-service-add-name]");
+  const name = input ? input.value.trim() : "";
+
+  if (!name) {
+    return;
+  }
+
+  quotationData.optionalServices.push({ name, description: "", price: "" });
+  renderEditor();
+  renderPreview();
+  saveActiveProject();
+
+  const nextInput = editorForm.querySelector("[data-service-add-name]");
+  if (nextInput) {
+    nextInput.focus();
+  }
+}
+
+function removeOptionalService(index) {
+  if (!quotationData.optionalServices[index]) {
+    return;
+  }
+
+  quotationData.optionalServices.splice(index, 1);
+  renderEditor();
+  renderPreview();
+  saveActiveProject();
+}
+
 // A lone text input submits the form on Enter, which would reload the page; block that.
 editorForm.addEventListener("submit", (event) => event.preventDefault());
 
 editorForm.addEventListener("keydown", (event) => {
-  if (event.key === "Enter" && event.target.matches("[data-scope-add-input]")) {
+  if (event.key !== "Enter") {
+    return;
+  }
+
+  if (event.target.matches("[data-scope-add-input]")) {
     event.preventDefault();
     addScopeItem(Number(event.target.dataset.scopeAddInput));
+  } else if (event.target.matches("[data-deliverable-add-input]")) {
+    event.preventDefault();
+    addDeliverable();
+  } else if (event.target.matches("[data-service-add-name]")) {
+    event.preventDefault();
+    addOptionalService();
   }
 });
 
@@ -1495,6 +1799,10 @@ projectsList.addEventListener("click", (event) => {
 editorForm.addEventListener("click", (event) => {
   const scopeAdd = event.target.closest("[data-scope-add]");
   const scopeRemove = event.target.closest("[data-scope-remove]");
+  const deliverableAdd = event.target.closest("[data-deliverable-add]");
+  const deliverableRemove = event.target.closest("[data-deliverable-remove]");
+  const serviceAdd = event.target.closest("[data-service-add]");
+  const serviceRemove = event.target.closest("[data-service-remove]");
   const dateInput = event.target.closest("[data-date-input]");
   const calendarNav = event.target.closest("[data-calendar-nav]");
   const dateChoice = event.target.closest("[data-date-choice]");
@@ -1507,6 +1815,26 @@ editorForm.addEventListener("click", (event) => {
   if (scopeRemove) {
     const [groupIndex, itemIndex] = scopeRemove.dataset.scopeRemove.split(":").map(Number);
     removeScopeItem(groupIndex, itemIndex);
+    return;
+  }
+
+  if (deliverableAdd) {
+    addDeliverable();
+    return;
+  }
+
+  if (deliverableRemove) {
+    removeDeliverable(Number(deliverableRemove.dataset.deliverableRemove));
+    return;
+  }
+
+  if (serviceAdd) {
+    addOptionalService();
+    return;
+  }
+
+  if (serviceRemove) {
+    removeOptionalService(Number(serviceRemove.dataset.serviceRemove));
     return;
   }
 
@@ -1567,7 +1895,7 @@ window.addEventListener("afterprint", restorePrintTitle);
 shareWhatsappBtn.addEventListener("click", shareViaWhatsApp);
 
 resetBtn.addEventListener("click", () => {
-  const defaults = JSON.parse(initialSnapshot);
+  const defaults = getDefaultQuotationData();
   Object.keys(quotationData).forEach((key) => delete quotationData[key]);
   Object.assign(quotationData, defaults);
   datePickerMonths.quotation = quotationData.dateIso;
@@ -1653,10 +1981,11 @@ async function idbGet(key) {
 function buildBackupPayload() {
   return JSON.stringify(
     {
-      app: "dural-nafis-quotation-editor",
-      version: 1,
+      app: "oroudy-quotation-editor",
+      version: 2,
       exportedAt: new Date().toISOString(),
       activeProjectId,
+      brandProfile,
       projects: savedProjects
     },
     null,
@@ -1836,6 +2165,15 @@ function applyRestoredPayload(text) {
     return;
   }
 
+  if (parsed && parsed.brandProfile && typeof parsed.brandProfile === "object") {
+    brandProfile = {
+      ...cloneData(defaultBrandProfile),
+      ...parsed.brandProfile,
+      footerFields: { ...cloneData(defaultBrandProfile.footerFields), ...(parsed.brandProfile.footerFields || {}) }
+    };
+    persistBrandProfile();
+  }
+
   savedProjects = validProjects;
   activeProjectId =
     parsed && parsed.activeProjectId && validProjects.some((project) => project.id === parsed.activeProjectId)
@@ -1931,6 +2269,213 @@ document.addEventListener("visibilitychange", () => {
     .then(renderBackupStatus)
     .catch(() => {});
 });
+
+/* ----------------------------------------------------------------------------
+   Office settings (إعدادات المكتب): the office edits its identity — name, logo,
+   stamp, footer (image or structured fields), closing text — in a draft that is
+   committed to the brand profile only on save. Uploaded images are downscaled to
+   keep localStorage small.
+---------------------------------------------------------------------------- */
+
+const settingsDialog = document.querySelector("#settingsDialog");
+const settingsForm = document.querySelector("#settingsForm");
+const officeSettingsBtn = document.querySelector("#officeSettingsBtn");
+
+let settingsDraft = null;
+
+function renderShellBrand() {
+  const brandName = document.querySelector("#brandOfficeName");
+  const brandLogo = document.querySelector("#brandLogo");
+
+  if (brandName) {
+    brandName.textContent = brandProfile.companyName;
+  }
+
+  if (brandLogo) {
+    brandLogo.src = getLogoSrc();
+  }
+}
+
+function readImageAsDataUrl(file, maxDimension = 640) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      const image = new Image();
+
+      image.onload = () => {
+        const scale = Math.min(1, maxDimension / Math.max(image.width, image.height));
+
+        if (scale === 1) {
+          resolve(String(reader.result));
+          return;
+        }
+
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.max(1, Math.round(image.width * scale));
+        canvas.height = Math.max(1, Math.round(image.height * scale));
+        canvas.getContext("2d").drawImage(image, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL("image/png"));
+      };
+      image.onerror = () => reject(new Error("invalid image"));
+      image.src = String(reader.result);
+    };
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+}
+
+function setSettingsValue(id, value) {
+  const input = settingsForm.querySelector(`#${id}`);
+
+  if (input) {
+    input.value = value || "";
+  }
+}
+
+function getSettingsValue(id) {
+  const input = settingsForm.querySelector(`#${id}`);
+  return input ? input.value.trim() : "";
+}
+
+function updateSettingsPreview(id, src) {
+  const previewImg = settingsForm.querySelector(`#${id}`);
+
+  if (previewImg) {
+    previewImg.src = src || "";
+    previewImg.hidden = !src;
+  }
+}
+
+function refreshSettingsPreviews() {
+  updateSettingsPreview("settingsLogoPreview", settingsDraft.logoDataUrl || settingsDraft.logoPath);
+  updateSettingsPreview("settingsSignaturePreview", settingsDraft.signatureDataUrl || settingsDraft.signaturePath);
+  updateSettingsPreview("settingsFooterImagePreview", settingsDraft.footerImageDataUrl || settingsDraft.footerImagePath);
+  updateSettingsPreview("settingsQrPreview", settingsDraft.footerFields.qrDataUrl);
+}
+
+function openOfficeSettings() {
+  settingsDraft = cloneData(brandProfile);
+  setSettingsValue("settingsCompanyName", settingsDraft.companyName);
+  setSettingsValue("settingsClosingText", settingsDraft.closingText);
+  setSettingsValue("settingsCr", settingsDraft.footerFields.crNumber);
+  setSettingsValue("settingsVat", settingsDraft.footerFields.vatNumber);
+  setSettingsValue("settingsAccreditation", settingsDraft.footerFields.accreditation);
+  setSettingsValue("settingsAddress", settingsDraft.footerFields.address);
+  setSettingsValue("settingsPhone", settingsDraft.footerFields.phone);
+  setSettingsValue("settingsEmail", settingsDraft.footerFields.email);
+  setSettingsValue("settingsWebsite", settingsDraft.footerFields.website);
+
+  const modeInput = settingsForm.querySelector(`[name="footerMode"][value="${settingsDraft.footerMode}"]`);
+  if (modeInput) {
+    modeInput.checked = true;
+  }
+
+  const defaultsStatus = settingsForm.querySelector("#settingsDefaultsStatus");
+  if (defaultsStatus) {
+    defaultsStatus.textContent = settingsDraft.defaults
+      ? "للمكتب قوائم افتراضية محفوظة."
+      : "لم تُحفظ قوائم افتراضية بعد — تُستخدم قوائم التطبيق الأساسية.";
+  }
+
+  refreshSettingsPreviews();
+  settingsDialog.showModal();
+}
+
+async function handleSettingsImageUpload(input) {
+  const file = input.files && input.files[0];
+
+  if (!file) {
+    return;
+  }
+
+  try {
+    const dataUrl = await readImageAsDataUrl(file, input.dataset.settingsImage === "qr" ? 320 : 640);
+
+    if (input.dataset.settingsImage === "logo") {
+      settingsDraft.logoDataUrl = dataUrl;
+    } else if (input.dataset.settingsImage === "signature") {
+      settingsDraft.signatureDataUrl = dataUrl;
+    } else if (input.dataset.settingsImage === "footerImage") {
+      settingsDraft.footerImageDataUrl = dataUrl;
+    } else if (input.dataset.settingsImage === "qr") {
+      settingsDraft.footerFields.qrDataUrl = dataUrl;
+    }
+
+    refreshSettingsPreviews();
+  } catch (error) {
+    window.alert("تعذّر قراءة الصورة. جرّب ملف PNG أو JPG آخر.");
+  } finally {
+    input.value = "";
+  }
+}
+
+function saveOfficeSettings() {
+  settingsDraft.companyName = getSettingsValue("settingsCompanyName") || defaultBrandProfile.companyName;
+  settingsDraft.closingText = getSettingsValue("settingsClosingText") || defaultBrandProfile.closingText;
+  settingsDraft.footerFields.crNumber = getSettingsValue("settingsCr");
+  settingsDraft.footerFields.vatNumber = getSettingsValue("settingsVat");
+  settingsDraft.footerFields.accreditation = getSettingsValue("settingsAccreditation");
+  settingsDraft.footerFields.address = getSettingsValue("settingsAddress");
+  settingsDraft.footerFields.phone = getSettingsValue("settingsPhone");
+  settingsDraft.footerFields.email = getSettingsValue("settingsEmail");
+  settingsDraft.footerFields.website = getSettingsValue("settingsWebsite");
+
+  const checkedMode = settingsForm.querySelector(`[name="footerMode"]:checked`);
+  settingsDraft.footerMode = checkedMode ? checkedMode.value : "image";
+
+  brandProfile = settingsDraft;
+  settingsDraft = null;
+  persistBrandProfile();
+  scheduleBackup();
+  settingsDialog.close();
+  renderApp();
+}
+
+if (officeSettingsBtn && settingsDialog && settingsForm) {
+  officeSettingsBtn.addEventListener("click", openOfficeSettings);
+
+  settingsForm.addEventListener("change", (event) => {
+    if (event.target.matches("[data-settings-image]")) {
+      handleSettingsImageUpload(event.target);
+    }
+  });
+
+  settingsForm.addEventListener("click", (event) => {
+    if (event.target.closest("#settingsSaveBtn")) {
+      event.preventDefault();
+      saveOfficeSettings();
+      return;
+    }
+
+    if (event.target.closest("#settingsCancelBtn")) {
+      event.preventDefault();
+      settingsDraft = null;
+      settingsDialog.close();
+      return;
+    }
+
+    if (event.target.closest("#settingsSaveDefaultsBtn")) {
+      event.preventDefault();
+      settingsDraft.defaults = {
+        validityPeriod: quotationData.validityPeriod,
+        notes: quotationData.notes,
+        showOptionalAnnex: quotationData.showOptionalAnnex,
+        scopeGroups: cloneData(quotationData.scopeGroups),
+        deliverables: cloneData(quotationData.deliverables),
+        financialTerms: cloneData(quotationData.financialTerms),
+        paymentSchedule: cloneData(quotationData.paymentSchedule),
+        optionalAnnexNote: quotationData.optionalAnnexNote,
+        optionalServices: cloneData(quotationData.optionalServices)
+      };
+
+      const defaultsStatus = settingsForm.querySelector("#settingsDefaultsStatus");
+      if (defaultsStatus) {
+        defaultsStatus.textContent = "تم التقاط قوائم العرض الحالي — تُعتمد عند حفظ الإعدادات.";
+      }
+    }
+  });
+}
 
 initializeProjects();
 renderApp();

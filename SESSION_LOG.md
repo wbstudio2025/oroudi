@@ -114,3 +114,60 @@ Dural Nafis Quotation Editor V1 — hardening + making it installable for a secr
   Footer already shows CR / address / contacts, so those are excluded.
 - The browser screenshot tool hung all session (renderer issue, not the app); verification used eval +
   accessibility snapshot + tests instead.
+
+# Session Log - 2026-06-10
+
+## Project
+
+عروضي (Oroudy) — productizing the quotation editor as a Saudi SaaS for architecture/engineering
+offices. Owner decisions: hosted web app (SaaS), quotations-only fully-brandable MVP, cross-device
+sync required (Supabase planned), Arabic UI with optionally bilingual documents, product name
+**عروضي / Oroudy** (oroudy.com / oroudy.sa to be registered).
+
+## Completed Work (Phases 1–2 of the productization plan, front-end only)
+
+- **Brand profile extraction:** company identity (name, logo, signature/stamp, footer, closing
+  text) moved out of `quotationData` into a persisted `brandProfile`
+  (localStorage `oroudyBrandProfile`); saved projects shed legacy embedded identity on migration.
+  Dural Nafis is now just the seed profile.
+- **Office settings dialog (إعدادات المكتب):** edit office name, upload logo/stamp/footer
+  image/QR (downscaled to data URLs), closing text, Saudi registration fields (CR, VAT,
+  هيئة المهندسين accreditation, address, phone, email, website), choose footer mode, and capture
+  the current quotation's lists as the office's defaults for new projects
+  (`brandProfile.defaults`).
+- **Structured footer strip:** alternative to the designed Footer.png — a print-ready strip built
+  from the registration/contact fields with optional QR image (auto-generated QR deferred).
+- **Auto-tafqit:** new `tafqit.js` (Node-testable) converts figures to formal Arabic words;
+  `mainPriceWritten` follows the figure automatically, typing takes manual control
+  (`mainPriceWrittenManual`), clearing returns to automatic.
+- **Financial page:** VAT-inclusive grand total (figures + words, 15%) inside the price card and
+  an explicit valid-until date (Gregorian + Hijri) computed from offer date + validity days.
+- **Bilingual documents:** per-quotation toggle adds English subtitles to all page titles and the
+  cover badge (UI stays Arabic).
+- **Editable lists:** deliverables became `{ name, enabled }` checklists with add/remove
+  (migration from legacy strings); optional services gained add/remove.
+- **Shell rebrand:** title/header now عروضي; office name + logo in the header come from the brand
+  profile. Backups now carry the brand profile (`app: "oroudy-quotation-editor"`, version 2) and
+  restores apply it.
+
+## Verification Performed
+
+- `node tests/quotation-static.test.js` — 39 tests pass (10 new productization tests incl.
+  behavioral tafqit assertions; 3 legacy assertions updated intentionally).
+- Browser (preview MCP, eval probes — screenshot tool still hangs):
+  - Tafqit: 75,500 → "خمسة وسبعون ألف وخمسمائة ريال سعودي فقط لا غير"; grand total 86,825 with
+    words; manual-override semantics verified.
+  - Second office created through the real settings dialog: rendered document carried the new
+    name/closing/strip (CR/VAT/accreditation) with **zero** Dural Nafis traces (no name, no
+    LOGO/Footer/Signature.png), last page footer-free, all page ratios 1.419 (A4).
+  - Deliverable/service add/remove live-update the document; annex toggle 6↔5 pages; no
+    console errors.
+
+## Outstanding
+
+- Push: repo still has no git remote configured (gh CLI not installed).
+- Phase 3 (Supabase accounts/sync) needs the owner to create a Supabase project (keys).
+- Phase 4: landing page, billing gateway choice (Moyasar vs Tap), pricing, domain registration.
+- Auto-generated QR (vCard) for the footer strip deferred — offices can upload an existing QR.
+- Dural Nafis's own VAT/IBAN/accreditation values still pending from the owner (now enterable
+  via إعدادات المكتب without code).

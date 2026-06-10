@@ -3,20 +3,27 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>محرر عروض الأسعار | الدر النفيس</title>
+    <title>عروضي — محرر عروض الأسعار</title>
     <link rel="icon" href="assets/app-icon.ico">
-    <link rel="stylesheet" href="styles.css?v=v5">
+    <link rel="stylesheet" href="styles.css?v=v6">
   </head>
   <body>
     <header class="app-header">
       <div class="brand">
-        <img src="assets/LOGO.png" alt="شعار شركة الدر النفيس للاستشارات الهندسية">
+        <img id="brandLogo" src="assets/LOGO.png" alt="شعار المكتب">
         <div>
-          <p>شركة الدر النفيس للاستشارات الهندسية</p>
-          <h1>محرر عروض</h1>
+          <p id="brandOfficeName">شركة الدر النفيس للاستشارات الهندسية</p>
+          <h1>عروضي</h1>
         </div>
       </div>
       <div class="actions">
+        <button id="officeSettingsBtn" class="secondary-btn" type="button">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.2a1.6 1.6 0 0 0-1-1.5 1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.2a1.6 1.6 0 0 0 1.5-1 1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3h.1a1.6 1.6 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.2a1.6 1.6 0 0 0 1 1.5h.1a1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8v.1a1.6 1.6 0 0 0 1.5 1h.2a2 2 0 1 1 0 4h-.2a1.6 1.6 0 0 0-1.5 1z"/>
+          </svg>
+          إعدادات المكتب
+        </button>
         <button id="printBtn" class="primary-btn" type="button">
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <path d="M6 9V3h12v6M6 17H4a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-2"/>
@@ -96,6 +103,93 @@
       </aside>
     </main>
 
-    <script src="app.js?v=v5"></script>
+    <dialog id="settingsDialog" class="settings-dialog">
+      <form id="settingsForm" class="settings-form" method="dialog">
+        <h2>إعدادات المكتب</h2>
+        <p class="settings-hint">هوية المكتب تظهر على جميع العروض المحفوظة والجديدة.</p>
+
+        <div class="field">
+          <label for="settingsCompanyName">اسم المكتب / الشركة</label>
+          <input id="settingsCompanyName" type="text" placeholder="اسم المكتب كما يظهر على العرض">
+        </div>
+
+        <div class="settings-grid">
+          <div class="field">
+            <label for="settingsLogoFile">الشعار</label>
+            <img id="settingsLogoPreview" class="settings-preview" alt="" hidden>
+            <input id="settingsLogoFile" data-settings-image="logo" type="file" accept="image/*">
+          </div>
+          <div class="field">
+            <label for="settingsSignatureFile">التوقيع والختم</label>
+            <img id="settingsSignaturePreview" class="settings-preview" alt="" hidden>
+            <input id="settingsSignatureFile" data-settings-image="signature" type="file" accept="image/*">
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="settingsClosingText">نص الخاتمة</label>
+          <textarea id="settingsClosingText" placeholder="النص الختامي قبل التوقيع"></textarea>
+        </div>
+
+        <h3>تذييل الصفحات</h3>
+        <div class="field footer-mode-field">
+          <label class="radio-option"><input type="radio" name="footerMode" value="image"> صورة تذييل جاهزة</label>
+          <label class="radio-option"><input type="radio" name="footerMode" value="fields"> شريط بيانات منظم (يُبنى من الحقول أدناه)</label>
+        </div>
+        <div class="field">
+          <label for="settingsFooterImageFile">صورة التذييل (لوضع الصورة الجاهزة)</label>
+          <img id="settingsFooterImagePreview" class="settings-preview settings-preview-wide" alt="" hidden>
+          <input id="settingsFooterImageFile" data-settings-image="footerImage" type="file" accept="image/*">
+        </div>
+
+        <div class="settings-grid">
+          <div class="field">
+            <label for="settingsCr">السجل التجاري</label>
+            <input id="settingsCr" type="text" placeholder="رقم السجل التجاري">
+          </div>
+          <div class="field">
+            <label for="settingsVat">الرقم الضريبي</label>
+            <input id="settingsVat" type="text" placeholder="الرقم الضريبي (VAT)">
+          </div>
+          <div class="field">
+            <label for="settingsAccreditation">اعتماد هيئة المهندسين</label>
+            <input id="settingsAccreditation" type="text" placeholder="رقم الاعتماد المهني">
+          </div>
+          <div class="field">
+            <label for="settingsPhone">الهاتف</label>
+            <input id="settingsPhone" type="text" placeholder="05xxxxxxxx">
+          </div>
+          <div class="field">
+            <label for="settingsEmail">البريد الإلكتروني</label>
+            <input id="settingsEmail" type="text" placeholder="info@office.sa">
+          </div>
+          <div class="field">
+            <label for="settingsWebsite">الموقع الإلكتروني</label>
+            <input id="settingsWebsite" type="text" placeholder="www.office.sa">
+          </div>
+        </div>
+        <div class="field">
+          <label for="settingsAddress">العنوان</label>
+          <input id="settingsAddress" type="text" placeholder="المدينة — الحي — الشارع — المكتب">
+        </div>
+        <div class="field">
+          <label for="settingsQrFile">رمز QR (اختياري — يظهر في شريط التذييل المنظم)</label>
+          <img id="settingsQrPreview" class="settings-preview" alt="" hidden>
+          <input id="settingsQrFile" data-settings-image="qr" type="file" accept="image/*">
+        </div>
+
+        <h3>القوائم الافتراضية للمكتب</h3>
+        <p id="settingsDefaultsStatus" class="settings-hint"></p>
+        <button id="settingsSaveDefaultsBtn" class="secondary-btn" type="button">حفظ قوائم العرض الحالي كافتراضية للمشاريع الجديدة</button>
+
+        <div class="settings-actions">
+          <button id="settingsSaveBtn" class="primary-btn" type="button">حفظ الإعدادات</button>
+          <button id="settingsCancelBtn" class="secondary-btn" type="button">إلغاء</button>
+        </div>
+      </form>
+    </dialog>
+
+    <script src="tafqit.js?v=v6"></script>
+    <script src="app.js?v=v6"></script>
   </body>
 </html>

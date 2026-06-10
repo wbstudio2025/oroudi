@@ -18,10 +18,12 @@ function test(name, fn) {
   }
 }
 
-test("printed pages use the branded footer asset on every page shell", () => {
+test("printed pages use the office footer (image or structured strip) on every page shell", () => {
   assert.match(app, /footerImagePath:\s*"assets\/Footer\.png"/);
   assert.match(app, /class="brand-footer"/);
-  assert.match(app, /quotationData\.footerImagePath/);
+  assert.match(app, /getFooterImageSrc\(\)/);
+  assert.match(app, /brandProfile\.footerMode === "fields"/);
+  assert.match(app, /class="footer-strip"/);
 });
 
 test("scope cards choose semantic icons by item name", () => {
@@ -76,17 +78,17 @@ test("financial terms render as a simple list instead of rounded cards", () => {
   assert.match(css, /\.terms-list\s*{[\s\S]*list-style:\s*none/);
   assert.match(css, /\.terms-list li::before\s*{[\s\S]*content:\s*""/);
   assert.match(css, /\.terms-list li\s*{[\s\S]*border:\s*0/);
-  assert.doesNotMatch(css, /\.terms-list li\s*{[\s\S]*border-radius:\s*8px/);
+  assert.doesNotMatch(css, /\.terms-list li\s*{[^}]*border-radius:\s*8px/);
 });
 
 test("deliverables render as a simple checklist without rounded cards", () => {
   assert.match(app, /class="deliverables-list"/);
-  assert.match(app, /<li class="deliverable"><span class="check">✓<\/span><span>\$\{escapeHtml\(item\)\}<\/span><\/li>/);
+  assert.match(app, /<li class="deliverable"><span class="check">✓<\/span><span>\$\{escapeHtml\(item\.name\)\}<\/span><\/li>/);
   assert.doesNotMatch(app, /class="deliverables-grid"/);
   assert.match(css, /\.deliverables-list\s*{[\s\S]*list-style:\s*none/);
-  assert.match(css, /\.deliverable\s*{[\s\S]*border:\s*0/);
-  assert.match(css, /\.deliverable\s*{[\s\S]*background:\s*transparent/);
-  assert.doesNotMatch(css, /\.deliverable\s*{[\s\S]*border-radius:\s*8px/);
+  assert.match(css, /\.deliverable\s*{[^}]*border:\s*0/);
+  assert.match(css, /\.deliverable\s*{[^}]*background:\s*transparent/);
+  assert.doesNotMatch(css, /\.deliverable\s*{[^}]*border-radius:\s*8px/);
 });
 
 test("payment percentages are editable from the editor form", () => {
@@ -348,4 +350,119 @@ test("last page drops the footer and ends with the signature", () => {
   assert.match(app, /\$\{isLast \? "" : renderFooter\(pageNumber, totalPages\)\}/);
   assert.match(app, /!quotationData\.showOptionalAnnex/); // financial is last only when annex hidden
   assert.match(css, /\.page\.is-last-page \.closing-block\s*{[\s\S]*margin-top:\s*auto/);
+});
+
+/* --- Productization (عروضي): brandable office identity + market features --- */
+
+const tafqit = require(path.join(root, "tafqit.js"));
+
+test("tafqit converts figures into formal Arabic words", () => {
+  assert.equal(tafqit.tafqitInteger(1), "واحد");
+  assert.equal(tafqit.tafqitInteger(11), "أحد عشر");
+  assert.equal(tafqit.tafqitInteger(25), "خمسة وعشرون");
+  assert.equal(tafqit.tafqitInteger(100), "مائة");
+  assert.equal(tafqit.tafqitInteger(200), "مائتان");
+  assert.equal(tafqit.tafqitInteger(345), "ثلاثمائة وخمسة وأربعون");
+  assert.equal(tafqit.tafqitInteger(1000), "ألف");
+  assert.equal(tafqit.tafqitInteger(2000), "ألفان");
+  assert.equal(tafqit.tafqitInteger(3000), "ثلاثة آلاف");
+  assert.equal(tafqit.tafqitInteger(75500), "خمسة وسبعون ألف وخمسمائة");
+  assert.equal(tafqit.tafqitInteger(1000000), "مليون");
+  assert.equal(tafqit.tafqitInteger(2500000), "مليونان وخمسمائة ألف");
+  assert.equal(tafqit.tafqitRiyals(86250), "ستة وثمانون ألف ومائتان وخمسون ريال سعودي فقط لا غير");
+  assert.equal(tafqit.tafqitRiyals(10.5), "عشرة ريال سعودي وخمسون هللة فقط لا غير");
+  assert.equal(tafqit.tafqitRiyals(0), "");
+});
+
+test("written amount is auto-derived from the figure with manual override", () => {
+  assert.match(html, /tafqit\.js\?v=/);
+  assert.match(app, /mainPriceWrittenManual: false/);
+  assert.match(app, /quotationData\.mainPriceWritten = tafqitRiyals\(parseMoneyAmount\(quotationData\.mainPriceNumber\)\)/);
+  assert.match(app, /quotationData\.mainPriceWrittenManual = input\.value\.trim\(\) !== ""/);
+});
+
+test("office identity lives in a persisted brand profile, not in each quotation", () => {
+  assert.match(app, /const BRAND_PROFILE_STORAGE_KEY = "oroudyBrandProfile"/);
+  assert.match(app, /const defaultBrandProfile = {/);
+  assert.match(app, /function loadBrandProfile\(\)/);
+  assert.match(app, /function persistBrandProfile\(\)/);
+  assert.match(app, /brandProfile\.companyName/);
+  assert.match(app, /getLogoSrc\(\)/);
+  assert.match(app, /getSignatureSrc\(\)/);
+  // saved projects shed their legacy embedded identity
+  assert.match(app, /\["companyName", "logoPath", "footerImagePath", "signaturePath", "closingText"\]\.forEach/);
+});
+
+test("office settings dialog edits name, images, footer fields and defaults", () => {
+  assert.match(html, /id="settingsDialog"/);
+  assert.match(html, /id="officeSettingsBtn"/);
+  assert.match(html, /id="settingsCompanyName"/);
+  assert.match(html, /data-settings-image="logo"/);
+  assert.match(html, /data-settings-image="signature"/);
+  assert.match(html, /data-settings-image="qr"/);
+  assert.match(html, /id="settingsVat"/);
+  assert.match(html, /id="settingsCr"/);
+  assert.match(html, /id="settingsAccreditation"/);
+  assert.match(html, /name="footerMode"/);
+  assert.match(app, /function openOfficeSettings\(\)/);
+  assert.match(app, /function saveOfficeSettings\(\)/);
+  assert.match(app, /function readImageAsDataUrl\(/); // uploads downscaled for localStorage
+  assert.match(app, /settingsSaveDefaultsBtn/);
+  assert.match(app, /brandProfile\.defaults \? { \.\.\.base, \.\.\.cloneData\(brandProfile\.defaults\) } : base/);
+});
+
+test("structured footer strip renders Saudi registration fields and optional QR", () => {
+  assert.match(app, /function renderFooterStrip\(\)/);
+  assert.match(app, /الرقم الضريبي: /);
+  assert.match(app, /س\.ت: /);
+  assert.match(app, /اعتماد الهيئة السعودية للمهندسين/);
+  assert.match(app, /class="footer-qr"/);
+  assert.match(css, /\.footer-strip\s*{/);
+  assert.match(css, /\.footer-qr\s*{/);
+});
+
+test("financial page shows VAT-inclusive grand total and explicit valid-until date", () => {
+  assert.match(app, /function getGrandTotal\(\)/);
+  assert.match(app, /subtotal \* 1\.15/);
+  assert.match(app, /class="grand-total-row"/);
+  assert.match(app, /الإجمالي شامل ضريبة القيمة المضافة 15%/);
+  assert.match(app, /function getValidUntilText\(\)/);
+  assert.match(app, /حتى تاريخ /);
+  assert.match(css, /\.grand-total-row\s*{/);
+});
+
+test("bilingual toggle adds English subtitles to document titles", () => {
+  assert.match(app, /bilingual: false/);
+  assert.match(app, /const pageTitleTranslations = {/);
+  assert.match(app, /"Scope of Work"/);
+  assert.match(app, /class="page-title-en"/);
+  assert.match(app, /Official Price Quotation/);
+  assert.match(app, /\["bilingual", "إظهار العناوين بالإنجليزية", "checkbox"\]/);
+  assert.match(css, /\.page-title-en\s*{/);
+});
+
+test("deliverables and optional services are editable lists like scope", () => {
+  assert.match(app, /function addDeliverable\(\)/);
+  assert.match(app, /function removeDeliverable\(index\)/);
+  assert.match(app, /function addOptionalService\(\)/);
+  assert.match(app, /function removeOptionalService\(index\)/);
+  assert.match(app, /data-deliverable-item/);
+  assert.match(app, /data-deliverable-add-input/);
+  assert.match(app, /data-service-add-name/);
+  assert.match(app, /data-service-remove/);
+  // legacy string deliverables migrate to { name, enabled }
+  assert.match(app, /migratedData\.deliverables = migratedData\.deliverables\.map/);
+});
+
+test("the shell is branded as عروضي with the office name driven by the profile", () => {
+  assert.match(html, /<title>عروضي — محرر عروض الأسعار<\/title>/);
+  assert.match(html, /id="brandOfficeName"/);
+  assert.match(html, /id="brandLogo"/);
+  assert.match(app, /function renderShellBrand\(\)/);
+});
+
+test("backups carry the brand profile so a full office restore works", () => {
+  assert.match(app, /app: "oroudy-quotation-editor"/);
+  assert.match(app, /brandProfile,\s*\n\s*projects: savedProjects/);
+  assert.match(app, /parsed\.brandProfile/);
 });
