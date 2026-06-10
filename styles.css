@@ -172,7 +172,7 @@ textarea {
 }
 
 .brand p {
-  color: var(--gold);
+  color: var(--ink);
   font-size: 13px;
   font-weight: 700;
 }
@@ -320,7 +320,7 @@ textarea {
   width: 5px;
   min-height: 54px;
   border-radius: 999px;
-  background: var(--gold);
+  background: var(--line);
 }
 
 .panel-heading h2,
@@ -599,6 +599,33 @@ textarea {
   font-size: 12px;
   font-weight: 700;
   line-height: 1.6;
+}
+
+.section-header-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.section-header-toggle h3 {
+  margin: 0;
+}
+
+.toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.toggle-label input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  cursor: pointer;
 }
 
 .scope-editor-group {
@@ -1024,9 +1051,11 @@ textarea {
 }
 
 .cover-logo {
-  width: 116px;
-  height: 116px;
+  display: block;
+  width: 140px;
+  height: 140px;
   object-fit: contain;
+  margin: 0 auto 14px;
 }
 
 .cover-top {
@@ -1047,13 +1076,15 @@ textarea {
 }
 
 .cover-title {
-  max-width: 620px;
+  width: 100%;
+  max-width: 100%;
   margin: 42mm 0 22mm;
+  text-align: center;
 }
 
 .kicker {
   margin: 0 0 10px;
-  color: var(--gold);
+  color: var(--charcoal);
   font-size: 13px;
   font-weight: 900;
 }
@@ -1061,15 +1092,18 @@ textarea {
 .cover-title h2 {
   margin: 0;
   color: var(--navy);
-  font-size: 38px;
-  line-height: 1.35;
+  font-size: clamp(18px, 3.5vw, 34px);
+  line-height: 1.2;
   font-weight: 900;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .cover-title p {
   margin: 10px 0 0;
   color: var(--muted);
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 700;
 }
 

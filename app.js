@@ -99,6 +99,7 @@ const quotationData = {
   bilingual: false,
   notes: "يشمل العرض منظوراً خارجياً واحداً فقط للواجهة الرئيسية. أي مناظير إضافية أو خدمات تصميم داخلي يتم تسعيرها ضمن الخدمات الاختيارية.",
   showOptionalAnnex: true,
+  showDeliverables: true,
   scopeGroups: [
     {
       number: "01",
@@ -309,14 +310,6 @@ const fields = [
       ["deedDate", "تاريخ الصك", "date"]
     ]
   },
-  {
-    title: "العرض المالي والملاحظات",
-    items: [
-      ["mainPriceNumber", "قيمة العرض", "money"],
-      ["mainPriceWritten", "قيمة العرض كتابة"],
-      ["notes", "ملاحظات", "textarea"]
-    ]
-  }
 ];
 
 function escapeHtml(value) {
@@ -1516,11 +1509,35 @@ function renderEditor() {
       ${scopeGroupsInputs}
     </section>
     <section class="form-group scope-editor">
-      <h3>المخرجات المتوقعة</h3>
+      <div class="section-header-toggle">
+        <h3>المخرجات المتوقعة</h3>
+        <label class="toggle-label">
+          <input id="showDeliverables" data-key="showDeliverables" type="checkbox" ${quotationData.showDeliverables ? "checked" : ""}>
+          <span>إظهار في العرض</span>
+        </label>
+      </div>
       ${deliverableInputs}
       <div class="scope-add-row">
         <input type="text" data-deliverable-add-input placeholder="إضافة مخرج جديد…" aria-label="إضافة مخرج جديد">
         <button type="button" class="scope-add" data-deliverable-add>إضافة</button>
+      </div>
+    </section>
+    <section class="form-group">
+      <h3>العرض المالي والملاحظات</h3>
+      <div class="field">
+        <label for="mainPriceNumber">قيمة العرض</label>
+        <div class="money-input-row">
+          <input id="mainPriceNumber" data-key="mainPriceNumber" data-money-key="mainPriceNumber" type="text" inputmode="decimal" placeholder="0" value="${escapeHtml(getMoneyInputValue(quotationData.mainPriceNumber))}">
+          <span>ريال</span>
+        </div>
+      </div>
+      <div class="field">
+        <label for="mainPriceWritten">قيمة العرض كتابة</label>
+        <input id="mainPriceWritten" data-key="mainPriceWritten" type="text" placeholder="قيمة العرض كتابة" value="${escapeHtml(quotationData.mainPriceWritten)}">
+      </div>
+      <div class="field">
+        <label for="notes">ملاحظات</label>
+        <textarea id="notes" data-key="notes" placeholder="ملاحظات">${escapeHtml(quotationData.notes)}</textarea>
       </div>
     </section>
     <section class="form-group scope-editor">
@@ -1740,10 +1757,11 @@ function renderCover(totalPages) {
     <article class="page cover">
       <div class="page-content">
         <div class="cover-top">
-          <img class="cover-logo" src="${escapeHtml(getLogoSrc())}" alt="">
+          <div></div>
           <div class="cover-badge">عرض سعر رسمي${quotationData.bilingual ? `<span class="cover-badge-en">Official Price Quotation</span>` : ""}</div>
         </div>
         <section class="cover-title">
+          <img class="cover-logo" src="${escapeHtml(getLogoSrc())}" alt="">
           <p class="kicker">${escapeHtml(brandProfile.companyName)}</p>
           <h2>${escapeHtml(getPermitTitle())}</h2>
           <p>${escapeHtml(quotationData.projectType)} — ${ph(quotationData.city, "المدينة")}</p>
@@ -1941,14 +1959,21 @@ function renderOptionalAnnex(totalPages) {
 }
 
 function renderPreview() {
-  const totalPages = quotationData.showOptionalAnnex ? 6 : 5;
+  let totalPages = 4;
+  if (quotationData.showDeliverables) totalPages++;
+  if (quotationData.showOptionalAnnex) totalPages++;
+
   const pages = [
     renderCover(totalPages),
     renderSummary(totalPages),
-    renderScope(totalPages),
-    renderDeliverables(totalPages),
-    renderFinancial(totalPages)
+    renderScope(totalPages)
   ];
+
+  if (quotationData.showDeliverables) {
+    pages.push(renderDeliverables(totalPages));
+  }
+
+  pages.push(renderFinancial(totalPages));
 
   if (quotationData.showOptionalAnnex) {
     pages.push(renderOptionalAnnex(totalPages));
