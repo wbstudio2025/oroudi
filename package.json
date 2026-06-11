@@ -1,0 +1,14 @@
+{
+  "name": "oroudy-quotation-editor",
+  "version": "1.0.0",
+  "private": true,
+  "description": "عروضي (Oroudy) — static Arabic RTL quotation editor for Saudi engineering offices. Plain HTML/CSS/JS, no build step.",
+  "scripts": {
+    "test": "node tests/quotation-static.test.js",
+    "serve": "node --version >/dev/null 2>&1 && npx --yes serve@latest -l 8137 . || echo 'Use server.ps1 on Windows'"
+  },
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=18"
+  }
+}

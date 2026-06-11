@@ -84,6 +84,9 @@ const quotationData = {
   clientName: "",
   clientPhone: "",
   clientEmail: "",
+  responsibleTitle: "المهندس",
+  responsibleName: "",
+  responsiblePhone: "",
   permitType: "إصدار رخصة بناء",
   projectType: "فيلا سكنية",
   city: "",
@@ -201,11 +204,6 @@ const saveStatus = document.querySelector("#saveStatus");
 const newProjectBtn = document.querySelector("#newProjectBtn");
 const saveProjectBtn = document.querySelector("#saveProjectBtn");
 const duplicateProjectBtn = document.querySelector("#duplicateProjectBtn");
-const deleteProjectBtn = document.querySelector("#deleteProjectBtn");
-const backupStatusEl = document.querySelector("#backupStatus");
-const enableBackupBtn = document.querySelector("#enableBackupBtn");
-const backupNowBtn = document.querySelector("#backupNowBtn");
-const restoreBackupBtn = document.querySelector("#restoreBackupBtn");
 const loginOverlay = document.querySelector("#loginOverlay");
 const loginForm = document.querySelector("#loginForm");
 const loginEmail = document.querySelector("#loginEmail");
@@ -283,6 +281,12 @@ const permitTypeOptions = [
 ];
 
 const clientTitleOptions = ["السيد", "السيدة"];
+const responsibleTitleOptions = ["المهندس", "المهندسة", "السيد", "السيدة"];
+const projectStatusOptions = [
+  { value: "sent", label: "تم الإرسال" },
+  { value: "accepted", label: "تم القبول" },
+  { value: "rejected", label: "تم الرفض" }
+];
 
 const fields = [
   {
@@ -505,6 +509,36 @@ function getClientDisplayName(data = quotationData) {
   return [data.clientTitle, data.clientName].filter(Boolean).join(" ");
 }
 
+function getResponsibleDisplayName(data = quotationData) {
+  return [data.responsibleTitle, data.responsibleName].filter(Boolean).join(" ");
+}
+
+function normalizeContactPhone(value) {
+  const normalizedDigits = String(value || "")
+    .replace(/[٠-٩]/g, (digit) => String("٠١٢٣٤٥٦٧٨٩".indexOf(digit)))
+    .replace(/[۰-۹]/g, (digit) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(digit)));
+  const cleaned = normalizedDigits.replace(/[^\d+]/g, "").replace(/(?!^)\+/g, "");
+
+  if (!cleaned) {
+    return "";
+  }
+
+  if (cleaned.startsWith("+")) {
+    return cleaned.slice(1);
+  }
+
+  if (cleaned.startsWith("00")) {
+    return cleaned.slice(2);
+  }
+
+  return cleaned.startsWith("0") ? `966${cleaned.slice(1)}` : cleaned;
+}
+
+function getResponsibleContactUrl(data = quotationData) {
+  const phone = normalizeContactPhone(data.responsiblePhone);
+  return phone ? `https://wa.me/${phone}` : "";
+}
+
 function getSafeFilePart(value, fallback) {
   const safeValue = String(value || "")
     .trim()
@@ -666,16 +700,24 @@ function isUuid(value) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value || ""));
 }
 
+function normalizeProjectStatus(status) {
+  const value = String(status || "");
+  return projectStatusOptions.some((option) => option.value === value) ? value : "";
+}
+
 function normalizeProjectRecord(project) {
   if (!project || !project.data) {
     return null;
   }
 
+  const data = migrateProjectData(project.data);
+
   return {
     id: isUuid(project.id) ? project.id : createProjectId(),
     name: project.name || getProjectName(project.data),
     updatedAt: project.updatedAt || new Date().toISOString(),
-    data: migrateProjectData(project.data)
+    status: normalizeProjectStatus(project.status || project.data.projectStatus),
+    data
   };
 }
 
@@ -699,7 +741,6 @@ function persistProjectsLocal() {
 
 function persistProjects() {
   persistProjectsLocal();
-  scheduleBackup();
   scheduleCloudProjectSync();
 }
 
@@ -722,7 +763,10 @@ function projectToSupabaseRow(project, officeId) {
     id: project.id,
     office_id: officeId,
     name: project.name || getProjectName(project.data),
-    data: migrateProjectData(project.data),
+    data: {
+      ...migrateProjectData(project.data),
+      projectStatus: normalizeProjectStatus(project.status)
+    },
     updated_at: project.updatedAt || new Date().toISOString()
   };
 }
@@ -736,6 +780,7 @@ function projectFromSupabaseRow(row) {
     id: row.id,
     name: row.name || getProjectName(row.data),
     updatedAt: row.updated_at || row.updatedAt || new Date().toISOString(),
+    status: normalizeProjectStatus(row.status || row.data.projectStatus),
     data: migrateProjectData(row.data)
   };
 }
@@ -1017,9 +1062,22 @@ function migrateProjectData(data) {
   ["companyName", "logoPath", "footerImagePath", "signaturePath", "closingText"].forEach((key) => {
     delete migratedData[key];
   });
+  delete migratedData.projectStatus;
 
   if (!migratedData.clientTitle) {
     migratedData.clientTitle = "السيد";
+  }
+
+  if (!migratedData.responsibleTitle) {
+    migratedData.responsibleTitle = "المهندس";
+  }
+
+  if (migratedData.responsibleName === undefined) {
+    migratedData.responsibleName = "";
+  }
+
+  if (migratedData.responsiblePhone === undefined) {
+    migratedData.responsiblePhone = "";
   }
 
   // Quotations saved before auto-tafqit had a hand-typed written amount; keep it.
@@ -1088,6 +1146,7 @@ function createProject(data = getDefaultQuotationData(), name = getProjectName(d
     id: createProjectId(),
     name,
     updatedAt: now,
+    status: "",
     data: migrateProjectData(data)
   };
 }
@@ -1147,6 +1206,7 @@ function duplicateActiveProject() {
   saveActiveProject();
 
   const copy = createProject(project.data, `${project.name} - نسخة`);
+  copy.status = normalizeProjectStatus(project.status);
   savedProjects.unshift(copy);
   activeProjectId = copy.id;
   applyProjectData(copy.data);
@@ -1154,10 +1214,10 @@ function duplicateActiveProject() {
   renderApp();
 }
 
-function deleteActiveProject() {
-  const project = getActiveProject();
+function deleteProject(projectId) {
+  const project = savedProjects.find((savedProject) => savedProject.id === projectId);
 
-  if (!project || !window.confirm("هل تريد حذف المشروع الحالي؟")) {
+  if (!project || !window.confirm("هل تريد حذف هذا المشروع؟")) {
     return;
   }
 
@@ -1169,10 +1229,26 @@ function deleteActiveProject() {
     savedProjects = [replacementProject];
   }
 
-  activeProjectId = savedProjects[0].id;
-  applyProjectData(savedProjects[0].data);
+  if (project.id === activeProjectId || !getActiveProject()) {
+    activeProjectId = savedProjects[0].id;
+    applyProjectData(savedProjects[0].data);
+  }
+
   persistProjects();
   renderApp();
+}
+
+function setProjectStatus(projectId, status) {
+  const project = savedProjects.find((savedProject) => savedProject.id === projectId);
+
+  if (!project) {
+    return;
+  }
+
+  project.status = normalizeProjectStatus(status);
+  project.updatedAt = new Date().toISOString();
+  persistProjects();
+  renderProjectsPanel();
 }
 
 function switchProject(projectId) {
@@ -1471,6 +1547,10 @@ function renderEditor() {
     })
     .join("");
 
+  const responsibleTitleSelectOptions = responsibleTitleOptions
+    .map((option) => `<option value="${escapeHtml(option)}" ${option === quotationData.responsibleTitle ? "selected" : ""}>${escapeHtml(option)}</option>`)
+    .join("");
+
   const optionalServiceInputs = quotationData.optionalServices
     .map((service, index) => {
       const servicePriceValue = getMoneyInputValue(service.price);
@@ -1645,6 +1725,25 @@ function renderEditor() {
         <textarea id="optionalAnnexNote" data-key="optionalAnnexNote" placeholder="ملاحظة تظهر أسفل جدول الخدمات الاختيارية">${escapeHtml(quotationData.optionalAnnexNote)}</textarea>
       </div>
     </section>
+    <section class="form-group">
+      <h3>المسؤول عن تجهيز العرض</h3>
+      <div class="field responsible-name-row">
+        <div>
+          <label for="responsibleTitle">الصفة</label>
+          <select id="responsibleTitle" data-key="responsibleTitle">
+            ${responsibleTitleSelectOptions}
+          </select>
+        </div>
+        <div>
+          <label for="responsibleName">الاسم</label>
+          <input id="responsibleName" data-key="responsibleName" type="text" placeholder="اسم المسؤول" value="${escapeHtml(quotationData.responsibleName)}">
+        </div>
+      </div>
+      <div class="field">
+        <label for="responsiblePhone">رقم الجوال</label>
+        <input id="responsiblePhone" data-key="responsiblePhone" type="tel" inputmode="tel" placeholder="05xxxxxxxx" value="${escapeHtml(quotationData.responsiblePhone)}">
+      </div>
+    </section>
   `;
 }
 
@@ -1691,18 +1790,32 @@ function renderProjectsPanel() {
   const projects = matchingProjects
     .map((project) => {
       const activeClass = project.id === activeProjectId ? " is-active" : "";
+      const projectStatus = normalizeProjectStatus(project.status);
       const projectData = project.data || {};
       const projectMeta = [
         projectData.city,
         projectData.district,
         formatProjectUpdatedAt(project.updatedAt)
       ].filter(Boolean).join(" • ");
+      const statusButtons = projectStatusOptions
+        .map((status) => `
+          <button class="project-status-btn${projectStatus === status.value ? " is-active" : ""}" type="button" data-project-status="${escapeHtml(project.id)}:${escapeHtml(status.value)}">
+            ${escapeHtml(status.label)}
+          </button>
+        `)
+        .join("");
 
       return `
-        <button class="project-item${activeClass}" type="button" data-project-id="${escapeHtml(project.id)}">
-          <strong>${escapeHtml(project.name)}</strong>
-          <span>${escapeHtml(projectMeta)}</span>
-        </button>
+        <div class="project-card${activeClass}">
+          <button class="project-item" type="button" data-project-id="${escapeHtml(project.id)}">
+            <strong>${escapeHtml(project.name)}</strong>
+            <span>${escapeHtml(projectMeta)}</span>
+          </button>
+          <div class="project-card-actions" aria-label="إجراءات المشروع">
+            ${statusButtons}
+            <button class="project-delete-btn" type="button" data-project-delete="${escapeHtml(project.id)}">حذف المشروع</button>
+          </div>
+        </div>
       `;
     })
     .join("");
@@ -1774,11 +1887,28 @@ function renderFooter(pageNumber, totalPages) {
   `;
 }
 
+function renderAcceptanceContactButton() {
+  const contactUrl = getResponsibleContactUrl();
+  const responsibleName = getResponsibleDisplayName();
+
+  if (!contactUrl || !responsibleName) {
+    return "";
+  }
+
+  return `
+    <a class="acceptance-contact-btn" href="${escapeHtml(contactUrl)}" target="_blank" rel="noopener">
+      <span>لقبول العرض أو بحال أي إستفسار</span>
+      <strong>أنقر هنا للتواصل مع ${escapeHtml(responsibleName)}</strong>
+    </a>
+  `;
+}
+
 function renderClosingBlock() {
   return `
     <section class="closing-block">
       <p>${escapeHtml(brandProfile.closingText)}</p>
       <p class="closing-regards">وتفضلوا بقبول فائق الاحترام والتقدير</p>
+      ${renderAcceptanceContactButton()}
       <img class="closing-signature" src="${escapeHtml(getSignatureSrc())}" alt="توقيع وختم المكتب">
     </section>
   `;
@@ -2429,6 +2559,19 @@ editorForm.addEventListener("keydown", (event) => {
 editorForm.addEventListener("input", updateEditorValue);
 
 projectsList.addEventListener("click", (event) => {
+  const statusButton = event.target.closest("[data-project-status]");
+  if (statusButton) {
+    const [projectId, status] = statusButton.dataset.projectStatus.split(":");
+    setProjectStatus(projectId, status);
+    return;
+  }
+
+  const deleteButton = event.target.closest("[data-project-delete]");
+  if (deleteButton) {
+    deleteProject(deleteButton.dataset.projectDelete);
+    return;
+  }
+
   const projectButton = event.target.closest("[data-project-id]");
 
   if (projectButton) {
@@ -2608,361 +2751,11 @@ shareWhatsappBtn.addEventListener("click", shareViaWhatsApp);
 newProjectBtn.addEventListener("click", createNewProject);
 saveProjectBtn.addEventListener("click", saveActiveProject);
 duplicateProjectBtn.addEventListener("click", duplicateActiveProject);
-deleteProjectBtn.addEventListener("click", deleteActiveProject);
 window.addEventListener("resize", applyPreviewZoom);
 window.addEventListener("load", flagPageOverflow);
 if (document.fonts && document.fonts.ready) {
   document.fonts.ready.then(flagPageOverflow);
 }
-
-/* ----------------------------------------------------------------------------
-   Automatic backup of all saved projects to a real file.
-   Primary path: File System Access API — the secretary picks a backup file once
-   (ideally inside a OneDrive/Documents folder for an offsite copy); afterwards the
-   full project list is written to it silently on every change. The file handle is
-   kept in IndexedDB so it survives relaunches. If the API is unavailable or blocked
-   (e.g. some file:// setups), everything degrades to manual download/upload.
----------------------------------------------------------------------------- */
-
-const BACKUP_DB_NAME = "duralNafisBackup";
-const BACKUP_STORE = "kv";
-const BACKUP_HANDLE_KEY = "backupFileHandle";
-const BACKUP_FILE_SUGGESTED = "dural-nafis-quotations-backup.json";
-const supportsFsAccess = typeof window.showSaveFilePicker === "function";
-
-let backupFileHandle = null;
-let backupState = "off"; // off | active | paused | unsupported
-let lastBackupAt = "";
-let backupTimer = 0;
-
-function openBackupDb() {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open(BACKUP_DB_NAME, 1);
-    request.onupgradeneeded = () => request.result.createObjectStore(BACKUP_STORE);
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
-  });
-}
-
-async function idbSet(key, value) {
-  const db = await openBackupDb();
-  try {
-    await new Promise((resolve, reject) => {
-      const tx = db.transaction(BACKUP_STORE, "readwrite");
-      tx.objectStore(BACKUP_STORE).put(value, key);
-      tx.oncomplete = resolve;
-      tx.onerror = () => reject(tx.error);
-    });
-  } finally {
-    db.close();
-  }
-}
-
-async function idbGet(key) {
-  const db = await openBackupDb();
-  try {
-    return await new Promise((resolve, reject) => {
-      const tx = db.transaction(BACKUP_STORE, "readonly");
-      const req = tx.objectStore(BACKUP_STORE).get(key);
-      req.onsuccess = () => resolve(req.result);
-      req.onerror = () => reject(req.error);
-    });
-  } finally {
-    db.close();
-  }
-}
-
-function buildBackupPayload() {
-  return JSON.stringify(
-    {
-      app: "oroudy-quotation-editor",
-      version: 2,
-      exportedAt: new Date().toISOString(),
-      activeProjectId,
-      brandProfile,
-      projects: savedProjects
-    },
-    null,
-    2
-  );
-}
-
-function formatBackupTime(isoDate) {
-  if (!isoDate) {
-    return "";
-  }
-
-  return new Intl.DateTimeFormat("ar-SA-u-ca-gregory-nu-latn", {
-    day: "numeric",
-    month: "short",
-    hour: "2-digit",
-    minute: "2-digit"
-  }).format(new Date(isoDate));
-}
-
-function renderBackupStatus() {
-  if (!backupStatusEl) {
-    return;
-  }
-
-  const messages = {
-    off: "النسخ الاحتياطي التلقائي غير مُفعّل",
-    active: lastBackupAt ? `النسخ الاحتياطي مفعّل ✓ — آخر نسخة ${formatBackupTime(lastBackupAt)}` : "النسخ الاحتياطي مفعّل ✓",
-    paused: "النسخ الاحتياطي متوقف — اضغط للاستئناف",
-    unsupported: "النسخ التلقائي غير متاح في هذا المتصفح — استخدم النسخ اليدوي"
-  };
-
-  backupStatusEl.textContent = messages[backupState] || messages.off;
-  backupStatusEl.dataset.state = backupState;
-
-  if (enableBackupBtn) {
-    enableBackupBtn.hidden = backupState === "unsupported";
-    enableBackupBtn.textContent =
-      backupState === "active"
-        ? "تغيير ملف النسخ الاحتياطي"
-        : backupState === "paused"
-          ? "استئناف النسخ الاحتياطي"
-          : "تفعيل النسخ الاحتياطي التلقائي";
-  }
-}
-
-async function verifyHandlePermission(handle, withRequest) {
-  if (!handle || !handle.queryPermission) {
-    return false;
-  }
-
-  const options = { mode: "readwrite" };
-
-  if ((await handle.queryPermission(options)) === "granted") {
-    return true;
-  }
-
-  return withRequest && (await handle.requestPermission(options)) === "granted";
-}
-
-async function writeBackupToHandle() {
-  const writable = await backupFileHandle.createWritable();
-  await writable.write(buildBackupPayload());
-  await writable.close();
-  lastBackupAt = new Date().toISOString();
-}
-
-function scheduleBackup() {
-  if (backupState !== "active" || !supportsFsAccess || !backupFileHandle) {
-    return;
-  }
-
-  clearTimeout(backupTimer);
-  backupTimer = setTimeout(async () => {
-    try {
-      if (!(await verifyHandlePermission(backupFileHandle, false))) {
-        backupState = "paused";
-        renderBackupStatus();
-        return;
-      }
-
-      await writeBackupToHandle();
-      renderBackupStatus();
-    } catch (error) {
-      backupState = "paused";
-      renderBackupStatus();
-    }
-  }, 1500);
-}
-
-function downloadBackup() {
-  const blob = new Blob([buildBackupPayload()], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-
-  link.href = url;
-  link.download = BACKUP_FILE_SUGGESTED;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  URL.revokeObjectURL(url);
-  lastBackupAt = new Date().toISOString();
-}
-
-async function enableAutoBackup() {
-  if (!supportsFsAccess) {
-    downloadBackup();
-    return;
-  }
-
-  try {
-    backupFileHandle = await window.showSaveFilePicker({
-      suggestedName: BACKUP_FILE_SUGGESTED,
-      types: [{ description: "JSON", accept: { "application/json": [".json"] } }]
-    });
-    await idbSet(BACKUP_HANDLE_KEY, backupFileHandle);
-    await writeBackupToHandle();
-    backupState = "active";
-    renderBackupStatus();
-  } catch (error) {
-    if (error && error.name !== "AbortError") {
-      backupState = "unsupported";
-      renderBackupStatus();
-    }
-  }
-}
-
-async function backupNow() {
-  if (!supportsFsAccess) {
-    downloadBackup();
-    renderBackupStatus();
-    return;
-  }
-
-  if (!backupFileHandle) {
-    await enableAutoBackup();
-    return;
-  }
-
-  try {
-    if (!(await verifyHandlePermission(backupFileHandle, true))) {
-      backupState = "paused";
-      renderBackupStatus();
-      return;
-    }
-
-    await writeBackupToHandle();
-    backupState = "active";
-    renderBackupStatus();
-  } catch (error) {
-    backupState = "paused";
-    renderBackupStatus();
-  }
-}
-
-function applyRestoredPayload(text) {
-  let parsed;
-
-  try {
-    parsed = JSON.parse(text);
-  } catch (error) {
-    window.alert("تعذّر قراءة ملف النسخة الاحتياطية.");
-    return;
-  }
-
-  const projects = Array.isArray(parsed) ? parsed : parsed && parsed.projects;
-  const validProjects = Array.isArray(projects)
-    ? projects.filter((project) => project && project.id && project.data)
-    : [];
-
-  if (!validProjects.length) {
-    window.alert("الملف لا يحتوي على مشاريع صالحة.");
-    return;
-  }
-
-  if (!window.confirm(`سيتم استبدال المشاريع الحالية بـ ${validProjects.length} مشروعًا من النسخة الاحتياطية. هل تريد المتابعة؟`)) {
-    return;
-  }
-
-  if (parsed && parsed.brandProfile && typeof parsed.brandProfile === "object") {
-    brandProfile = {
-      ...cloneData(defaultBrandProfile),
-      ...parsed.brandProfile,
-      footerFields: { ...cloneData(defaultBrandProfile.footerFields), ...(parsed.brandProfile.footerFields || {}) }
-    };
-    persistBrandProfile();
-  }
-
-  savedProjects = validProjects;
-  activeProjectId =
-    parsed && parsed.activeProjectId && validProjects.some((project) => project.id === parsed.activeProjectId)
-      ? parsed.activeProjectId
-      : validProjects[0].id;
-  applyProjectData(getActiveProject().data);
-  persistProjects();
-  renderApp();
-}
-
-async function restoreBackup() {
-  if (supportsFsAccess && typeof window.showOpenFilePicker === "function") {
-    try {
-      const [handle] = await window.showOpenFilePicker({
-        types: [{ description: "JSON", accept: { "application/json": [".json"] } }]
-      });
-      const file = await handle.getFile();
-      applyRestoredPayload(await file.text());
-    } catch (error) {
-      if (error && error.name !== "AbortError") {
-        window.alert("تعذّرت استعادة النسخة الاحتياطية.");
-      }
-    }
-    return;
-  }
-
-  const input = document.createElement("input");
-  input.type = "file";
-  input.accept = "application/json,.json";
-  input.addEventListener("change", () => {
-    const file = input.files && input.files[0];
-
-    if (!file) {
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = () => applyRestoredPayload(String(reader.result));
-    reader.readAsText(file);
-  });
-  input.click();
-}
-
-async function initializeBackup() {
-  if (!supportsFsAccess) {
-    backupState = "unsupported";
-    renderBackupStatus();
-    return;
-  }
-
-  try {
-    const handle = await idbGet(BACKUP_HANDLE_KEY);
-
-    if (handle) {
-      backupFileHandle = handle;
-      backupState = (await verifyHandlePermission(handle, false)) ? "active" : "paused";
-    }
-  } catch (error) {
-    backupState = "off";
-  }
-
-  renderBackupStatus();
-}
-
-if (enableBackupBtn) {
-  enableBackupBtn.addEventListener("click", () => {
-    if (backupState === "paused") {
-      backupNow();
-    } else {
-      enableAutoBackup();
-    }
-  });
-}
-
-if (backupNowBtn) {
-  backupNowBtn.addEventListener("click", backupNow);
-}
-
-if (restoreBackupBtn) {
-  restoreBackupBtn.addEventListener("click", restoreBackup);
-}
-
-// Best-effort immediate flush of the latest changes when the window is hidden or closed,
-// bypassing the debounce (which would not fire in time on an actual close).
-document.addEventListener("visibilitychange", () => {
-  if (document.visibilityState !== "hidden" || backupState !== "active" || !backupFileHandle) {
-    return;
-  }
-
-  clearTimeout(backupTimer);
-  verifyHandlePermission(backupFileHandle, false)
-    .then((granted) => (granted ? writeBackupToHandle() : null))
-    .then(renderBackupStatus)
-    .catch(() => {});
-});
 
 /* ----------------------------------------------------------------------------
    Office settings (إعدادات المكتب): the office edits its identity — name, logo,
@@ -3110,7 +2903,6 @@ function saveOfficeSettings() {
   brandProfile = settingsDraft;
   settingsDraft = null;
   persistBrandProfile();
-  scheduleBackup();
   settingsDialog.close();
   renderApp();
 }
@@ -3205,7 +2997,6 @@ if (logoutBtn) {
 async function bootstrapApp() {
   initializeProjects();
   renderApp();
-  initializeBackup();
   await initializeCloudSession();
 }
 

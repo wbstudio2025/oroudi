@@ -153,7 +153,10 @@ test("page numbering appears only centered under the footer as current over tota
   assert.match(app, /function renderFooter\(pageNumber, totalPages\)/);
   assert.match(app, /class="page-number">\$\{pageNumber\}\/\$\{totalPages\}<\/span>/);
   assert.doesNotMatch(app, /class="doc-meta">[^`]*صفحة/);
-  assert.match(app, /const totalPages = quotationData\.showOptionalAnnex \? 6 : 5/);
+  // totalPages is computed dynamically as the optional pages (deliverables, annex) toggle.
+  assert.match(app, /let totalPages = 4;/);
+  assert.match(app, /if \(quotationData\.showDeliverables\) totalPages\+\+;/);
+  assert.match(app, /if \(quotationData\.showOptionalAnnex\) totalPages\+\+;/);
   assert.match(app, /renderCover\(totalPages\)/);
   assert.match(css, /\.page-number\s*{[\s\S]*justify-self:\s*center/);
 });
@@ -185,6 +188,23 @@ test("client name has a السيد السيدة title dropdown used in output", 
   assert.match(css, /\.client-name-row\s*{/);
 });
 
+test("responsible person fields render at the end and drive the PDF contact button", () => {
+  assert.match(app, /responsibleTitle:\s*"المهندس"/);
+  assert.match(app, /responsibleName:\s*""/);
+  assert.match(app, /responsiblePhone:\s*""/);
+  assert.match(app, /const responsibleTitleOptions\s*=\s*\["المهندس", "المهندسة", "السيد", "السيدة"\]/);
+  assert.match(app, /function getResponsibleDisplayName/);
+  assert.match(app, /function getResponsibleContactUrl/);
+  assert.match(app, /<h3>المسؤول عن تجهيز العرض<\/h3>/);
+  assert.match(app, /class="field responsible-name-row"/);
+  assert.match(app, /id="responsiblePhone"/);
+  assert.match(app, /class="acceptance-contact-btn"/);
+  assert.match(app, /لقبول العرض أو بحال أي إستفسار/);
+  assert.match(app, /أنقر هنا للتواصل مع/);
+  assert.match(css, /\.responsible-name-row\s*{/);
+  assert.match(css, /\.acceptance-contact-btn\s*{/);
+});
+
 test("optional service money fields show contextual Riyal units", () => {
   assert.match(app, /function getOptionalServicePriceUnit/);
   assert.match(app, /function getOptionalServiceDisplayPrice/);
@@ -214,7 +234,23 @@ test("saved projects persist locally and can be switched from the projects panel
   assert.match(app, /function saveActiveProject\(\)/);
   assert.match(app, /function createNewProject\(\)/);
   assert.match(app, /function duplicateActiveProject\(\)/);
-  assert.match(app, /function deleteActiveProject\(\)/);
+  assert.match(app, /function deleteProject\(projectId\)/);
+});
+
+test("project cards include per-project status and delete controls without a global delete button", () => {
+  assert.doesNotMatch(html, /id="deleteProjectBtn"/);
+  assert.doesNotMatch(app, /deleteProjectBtn/);
+  assert.match(app, /const projectStatusOptions\s*=/);
+  assert.match(app, /تم الإرسال/);
+  assert.match(app, /تم القبول/);
+  assert.match(app, /تم الرفض/);
+  assert.match(app, /data-project-status="\$\{escapeHtml\(project\.id\)\}:\$\{escapeHtml\(status\.value\)\}"/);
+  assert.match(app, /data-project-delete="\$\{escapeHtml\(project\.id\)\}"/);
+  assert.match(app, /function setProjectStatus\(projectId, status\)/);
+  assert.match(app, /function deleteProject\(projectId\)/);
+  assert.match(css, /\.project-card\s*{/);
+  assert.match(css, /\.project-card-actions\s*{/);
+  assert.match(css, /\.project-status-btn\.is-active\s*{/);
 });
 
 test("cover title is driven by a permit type dropdown", () => {
@@ -254,14 +290,15 @@ test("print and sharing helpers generate filenames and WhatsApp links", () => {
   assert.match(app, /shareWhatsappBtn\.addEventListener\("click", shareViaWhatsApp\)/);
 });
 
-test("preview toolbar exposes fit 100 and 75 zoom controls", () => {
-  assert.match(html, /data-preview-zoom="fit"/);
-  assert.match(html, /data-preview-zoom="100"/);
-  assert.match(html, /data-preview-zoom="75"/);
-  assert.match(app, /let previewZoom = "fit"/);
-  assert.match(app, /function setPreviewZoom\(zoomMode\)/);
+test("preview auto-fits to the panel width instead of manual zoom controls", () => {
+  // the manual fit/100/75 buttons were replaced by automatic width-fitting
+  assert.doesNotMatch(html, /data-preview-zoom/);
+  assert.doesNotMatch(app, /function setPreviewZoom/);
   assert.match(app, /function applyPreviewZoom\(\)/);
-  assert.match(css, /\.zoom-controls\s*{/);
+  assert.match(app, /const availableWidth = shell\.clientWidth - 16/);
+  assert.match(app, /preview\.style\.setProperty\("--preview-zoom", String\(scale\)\)/);
+  assert.match(app, /window\.addEventListener\("resize", applyPreviewZoom\)/);
+  // the fit is still applied through the --preview-zoom variable and reset for print
   assert.match(css, /\.preview\s*{[\s\S]*zoom:\s*var\(--preview-zoom, 1\)/);
   assert.match(css, /@media print[\s\S]*\.preview\s*{[\s\S]*zoom:\s*1 !important/);
 });
@@ -279,24 +316,12 @@ test("pages grow instead of clipping, with an overflow warning", () => {
   assert.match(app, /flagPageOverflow\(\);\s*\n}/); // called at end of renderPreview
 });
 
-test("all projects are backed up to a file with automatic and manual paths", () => {
-  assert.match(html, /id="backupStatus"/);
-  assert.match(html, /id="enableBackupBtn"/);
-  assert.match(html, /id="backupNowBtn"/);
-  assert.match(html, /id="restoreBackupBtn"/);
-  assert.match(css, /\.backup-block\s*{/);
-  // primary path: File System Access API, persisted via IndexedDB
-  assert.match(app, /window\.showSaveFilePicker/);
-  assert.match(app, /window\.showOpenFilePicker/);
-  assert.match(app, /indexedDB\.open\(BACKUP_DB_NAME/);
-  assert.match(app, /function scheduleBackup\(\)/);
-  assert.match(app, /function buildBackupPayload\(\)/);
-  // auto-backup is wired into the single persistence choke-point
-  assert.match(app, /function persistProjects\(\)[\s\S]*scheduleBackup\(\);/);
-  // graceful manual fallback when the API is unavailable
-  assert.match(app, /function downloadBackup\(\)/);
-  assert.match(app, /function restoreBackup\(\)/);
-  assert.match(app, /const supportsFsAccess = typeof window\.showSaveFilePicker === "function"/);
+test("projects panel has no backup UI or file-backup leftovers", () => {
+  assert.doesNotMatch(html, /backupStatus|enableBackupBtn|backupNowBtn|restoreBackupBtn|النسخ الاحتياطي|نسخ احتياطي|استعادة من ملف/);
+  assert.doesNotMatch(css, /\.backup-block|\.backup-status/);
+  assert.doesNotMatch(app, /BACKUP_|backupFileHandle|backupState|scheduleBackup|buildBackupPayload|downloadBackup|restoreBackup|initializeBackup/);
+  assert.doesNotMatch(app, /showSaveFilePicker|showOpenFilePicker|indexedDB\.open/);
+  assert.doesNotMatch(app, /function persistProjects\(\)[\s\S]*scheduleBackup\(\);/);
 });
 
 test("premium Cairo font is bundled and self-hosted for offline use", () => {
@@ -500,12 +525,6 @@ test("the shell is branded as عروضي with the office name driven by the prof
   assert.match(app, /function renderShellBrand\(\)/);
 });
 
-test("backups carry the brand profile so a full office restore works", () => {
-  assert.match(app, /app: "oroudy-quotation-editor"/);
-  assert.match(app, /brandProfile,\s*\n\s*projects: savedProjects/);
-  assert.match(app, /parsed\.brandProfile/);
-});
-
 test("projects panel has a live search with result count", () => {
   assert.match(html, /id="projectSearch"/);
   assert.match(html, /id="projectsCount"/);
@@ -549,4 +568,42 @@ test("financial terms and the annex note are editable", () => {
   assert.match(app, /quotationData\.financialTerms\[Number\(input\.dataset\.termIndex\)\] = input\.value/);
   assert.match(app, /id="optionalAnnexNote" data-key="optionalAnnexNote"/);
   assert.match(css, /\.term-edit-row\s*{/);
+});
+
+/* --- Deployment base: GitHub + Cloudflare Pages + Supabase --- */
+
+test("deployment scaffolding is present for GitHub, Cloudflare Pages, and Supabase", () => {
+  const read = (rel) => fs.readFileSync(path.join(root, rel), "utf8");
+  const exists = (rel) => fs.existsSync(path.join(root, rel));
+
+  // package.json wires the test script CI relies on, with no build/runtime deps.
+  const pkg = JSON.parse(read("package.json"));
+  assert.equal(pkg.scripts.test, "node tests/quotation-static.test.js");
+  assert.ok(!pkg.dependencies, "the static app must not gain runtime dependencies");
+
+  // GitHub Actions runs the same suite on push/PR.
+  assert.ok(exists(".github/workflows/ci.yml"), "missing CI workflow");
+  assert.match(read(".github/workflows/ci.yml"), /npm test/);
+
+  // Line endings + ignores keep the repo clean and Linux/Cloudflare-buildable.
+  assert.match(read(".gitattributes"), /eol=crlf/);
+  assert.match(read(".gitignore"), /^\.env$/m);
+
+  // Cloudflare Pages headers: security site-wide, hard cache for self-hosted assets.
+  const headers = read("_headers");
+  assert.match(headers, /X-Content-Type-Options: nosniff/);
+  assert.match(headers, /\/assets\/\*/);
+  assert.match(headers, /immutable/);
+
+  // Supabase apply order is documented and the SQL it points to exists.
+  assert.ok(exists("supabase/schema.sql"), "missing supabase/schema.sql");
+  assert.ok(exists("supabase/shared-office-setup.sql"), "missing shared-office-setup.sql");
+  const deploy = read("DEPLOYMENT.md");
+  ["GitHub", "Cloudflare Pages", "Supabase", "schema.sql"].forEach((token) =>
+    assert.ok(deploy.includes(token), `DEPLOYMENT.md should mention ${token}`)
+  );
+
+  // Public Supabase config stays committed but empty, so the app boots local-only.
+  assert.match(config, /SUPABASE_URL:\s*""/);
+  assert.match(config, /SUPABASE_ANON_KEY:\s*""/);
 });

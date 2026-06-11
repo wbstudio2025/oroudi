@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>عروضي — محرر عروض الأسعار</title>
     <link rel="icon" href="assets/app-icon.ico">
-    <link rel="stylesheet" href="styles.css?v=v9">
+    <link rel="stylesheet" href="styles.css?v=v13">
   </head>
   <body>
     <section id="loginOverlay" class="login-overlay" aria-label="تسجيل الدخول إلى مشاريع المكتب" hidden>
@@ -99,15 +99,6 @@
           <span id="projectsCount" class="projects-count" aria-live="polite"></span>
         </div>
         <div id="projectsList" class="projects-list" aria-live="polite"></div>
-        <button id="deleteProjectBtn" class="danger-btn" type="button">حذف المشروع الحالي</button>
-
-        <div class="backup-block">
-          <h3>النسخ الاحتياطي</h3>
-          <p id="backupStatus" class="backup-status" data-state="off" aria-live="polite">النسخ الاحتياطي التلقائي غير مُفعّل</p>
-          <button id="enableBackupBtn" class="primary-btn" type="button">تفعيل النسخ الاحتياطي التلقائي</button>
-          <button id="backupNowBtn" class="secondary-btn" type="button">نسخ احتياطي الآن</button>
-          <button id="restoreBackupBtn" class="secondary-btn" type="button">استعادة من ملف</button>
-        </div>
       </aside>
     </main>
 
@@ -191,6 +182,6 @@
     <script src="supabase-config.js?v=v1"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="tafqit.js?v=v9"></script>
-    <script src="app.js?v=v9"></script>
+    <script src="app.js?v=v13"></script>
   </body>
 </html>

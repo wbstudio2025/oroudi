@@ -1,1 +1,24 @@
+# Local test/print artifacts (large PDFs generated during manual verification)
 test-artifacts/
+
+# Secrets / local environment — never commit real credentials
+.env
+.env.*
+!.env.example
+
+# Node (no dependencies today, but keep CI/tooling output out of git)
+node_modules/
+npm-debug.log*
+
+# Cloudflare / Wrangler local state
+.wrangler/
+.cloudflare/
+
+# Supabase CLI local state
+supabase/.branches/
+supabase/.temp/
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+*.swp

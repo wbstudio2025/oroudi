@@ -4,10 +4,10 @@ Static Arabic RTL quotation editor for preparing a polished A4 engineering consu
 
 ## Files
 
-- `index.html` - app shell, editor panel, preview container, action buttons, backup controls.
+- `index.html` - app shell, editor panel, preview container, action buttons, and projects panel.
 - `styles.css` - self-hosted Cairo `@font-face`, premium RTL layout, A4 page styling, print CSS.
 - `app.js` - `quotationData`, form/preview rendering, page-overflow warning, projects, Supabase
-  shared sync, and the automatic file backup.
+  shared sync, and office settings.
 - `supabase-config.js` - public Supabase URL/anon-key config used by the hosted app.
 - `assets/` - `LOGO.png`, `Footer.png`, `Signature.png`, `app-icon.ico`, and `fonts/` (Cairo woff2).
 - Launcher: `server.ps1` (built-in-PowerShell local server), `launch.vbs` (opens the Edge app
@@ -19,7 +19,7 @@ See **`INSTALL.md`**. In short: copy the folder to a permanent location, double-
 `setup.bat`, then launch from the Desktop shortcut. It runs in a Microsoft Edge "app mode"
 window, served from `http://127.0.0.1:8137` by a tiny PowerShell server — no Node, Python, admin
 rights, or internet needed. Serving over localhost (not `file://`) keeps saved data under one
-stable origin and enables the silent automatic backup.
+stable origin.
 
 For quick development you can also serve the folder any other way (e.g. `python -m http.server`)
 and open it in a Chromium-based browser.
@@ -32,9 +32,6 @@ Edit the fields in the left panel; the A4 preview updates immediately.
 - A red banner warns if a page's content exceeds one A4 sheet (instead of silently clipping it).
 - `إعادة تعبئة البيانات الافتراضية` restores the default quotation data.
 - Projects panel: save / duplicate / switch / delete quotations (stored in the browser).
-- Backup: `تفعيل النسخ الاحتياطي التلقائي` writes all projects to a file you choose and keeps it
-  updated automatically; `استعادة من ملف` restores from a backup. Falls back to manual
-  download/upload if the browser blocks silent file writes.
 
 ## Shared online projects
 
@@ -51,6 +48,19 @@ Supabase:
 When a user logs in, cloud projects are loaded from Supabase. If the cloud has no projects yet, the
 current browser's local projects are uploaded once. After that, cloud data wins and localStorage is
 only a cache/fallback. Simultaneous edits use last-save-wins for this first shared-office version.
+
+## Deployment
+
+The app deploys as a static site (no build step). See **[`DEPLOYMENT.md`](DEPLOYMENT.md)** for the
+full guide to the three target platforms:
+
+- **GitHub** — source repository; `.github/workflows/ci.yml` runs the test suite on push/PR.
+- **Cloudflare Pages** — frontend hosting (Framework preset: None, no build command, output `/`);
+  `_headers` adds security headers and long-caches `/assets/*`.
+- **Supabase** — database + auth + storage; run `supabase/schema.sql` then
+  `supabase/shared-office-setup.sql`, and supply the URL + anon key via `supabase-config.js`.
+
+No credentials are committed; the hosted site runs local-only until Supabase keys are added.
 
 ## Notes
 
