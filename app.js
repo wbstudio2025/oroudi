@@ -1722,6 +1722,7 @@ function renderEditor() {
         <input type="text" data-service-add-name placeholder="إضافة خدمة جديدة…" aria-label="إضافة خدمة اختيارية جديدة">
         <button type="button" class="scope-add" data-service-add>إضافة</button>
       </div>
+      <button type="button" class="reset-defaults-btn" data-reset-services>إعادة تعبئة القائمة الافتراضية</button>
       <div class="field">
         <label for="optionalAnnexNote">ملاحظة ملحق الخدمات</label>
         <textarea id="optionalAnnexNote" data-key="optionalAnnexNote" placeholder="ملاحظة تظهر أسفل جدول الخدمات الاختيارية">${escapeHtml(quotationData.optionalAnnexNote)}</textarea>
@@ -2648,6 +2649,14 @@ editorForm.addEventListener("click", (event) => {
 
   if (event.target.closest("[data-reset-terms]")) {
     quotationData.financialTerms = cloneData(getDefaultQuotationData().financialTerms);
+    renderEditor();
+    renderPreview();
+    saveActiveProject();
+    return;
+  }
+
+  if (event.target.closest("[data-reset-services]")) {
+    quotationData.optionalServices = cloneData(getDefaultQuotationData().optionalServices);
     renderEditor();
     renderPreview();
     saveActiveProject();
