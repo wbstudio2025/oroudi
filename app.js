@@ -209,8 +209,17 @@ const loginForm = document.querySelector("#loginForm");
 const loginEmail = document.querySelector("#loginEmail");
 const loginPassword = document.querySelector("#loginPassword");
 const loginStatus = document.querySelector("#loginStatus");
+const loginSubmitBtn = document.querySelector("#loginSubmitBtn");
+const loginHeading = document.querySelector("#loginHeading");
+const loginIntro = document.querySelector("#loginIntro");
+const authModeToggle = document.querySelector("#authModeToggle");
+const authSwitchPrompt = document.querySelector("#authSwitchPrompt");
+const signupOfficeName = document.querySelector("#signupOfficeName");
+const officeNameLabel = document.querySelector("#officeNameLabel");
 const syncStatus = document.querySelector("#syncStatus");
 const logoutBtn = document.querySelector("#logoutBtn");
+
+let authMode = "signin";
 
 const PROJECTS_STORAGE_KEY = "duralNafisQuotationProjects";
 const ACTIVE_PROJECT_STORAGE_KEY = "duralNafisActiveQuotationProject";
@@ -812,6 +821,40 @@ function showLoginOverlay(show) {
   if (logoutBtn) {
     logoutBtn.hidden = show || !cloudState.configured;
   }
+}
+
+function setAuthMode(mode) {
+  authMode = mode === "signup" ? "signup" : "signin";
+  const isSignup = authMode === "signup";
+
+  if (loginHeading) {
+    loginHeading.textContent = isSignup ? "إنشاء حساب جديد" : "تسجيل الدخول";
+  }
+  if (loginIntro) {
+    loginIntro.textContent = isSignup
+      ? "أنشئ حساباً جديداً بمساحة عمل خاصة بك لحفظ عروضك على الإنترنت."
+      : "سجّل الدخول لفتح مشاريعك المحفوظة على الإنترنت.";
+  }
+  if (loginSubmitBtn) {
+    loginSubmitBtn.textContent = isSignup ? "إنشاء حساب" : "دخول";
+  }
+  if (authSwitchPrompt) {
+    authSwitchPrompt.textContent = isSignup ? "لديك حساب بالفعل؟" : "ليس لديك حساب؟";
+  }
+  if (authModeToggle) {
+    authModeToggle.textContent = isSignup ? "تسجيل الدخول" : "إنشاء حساب جديد";
+  }
+  if (loginPassword) {
+    loginPassword.autocomplete = isSignup ? "new-password" : "current-password";
+  }
+  if (officeNameLabel) {
+    officeNameLabel.hidden = !isSignup;
+  }
+  if (signupOfficeName) {
+    signupOfficeName.hidden = !isSignup;
+  }
+
+  setLoginMessage("");
 }
 
 function createSupabaseClient() {
@@ -2996,6 +3039,45 @@ if (loginForm) {
       return;
     }
 
+    if (authMode === "signup") {
+      const officeName = signupOfficeName ? signupOfficeName.value.trim() : "";
+
+      try {
+        setLoginMessage("جاري إنشاء الحساب...");
+        setSyncStatus("syncing", "جاري إنشاء الحساب...");
+        const { data, error } = await cloudState.client.auth.signUp({
+          email,
+          password,
+          options: { data: { office_name: officeName } }
+        });
+
+        if (error) {
+          throw error;
+        }
+
+        if (data && data.session) {
+          // Email confirmation is off: the SIGNED_IN listener loads the workspace.
+          setLoginMessage("");
+        } else {
+          // Email confirmation is on: no session yet, wait for the emailed link.
+          setSyncStatus("error", "بانتظار تأكيد البريد");
+          setLoginMessage("تم إرسال رابط التأكيد إلى بريدك الإلكتروني. افتحه ثم سجّل الدخول.");
+          setAuthMode("signin");
+        }
+      } catch (error) {
+        setSyncStatus("error", "تعذّر إنشاء الحساب");
+        const message = error && error.message ? error.message : "";
+        if (/already\s*registered|already.*exists|user.*exists/i.test(message)) {
+          setLoginMessage("هذا البريد مسجّل بالفعل. سجّل الدخول بدلاً من ذلك.");
+        } else if (/password/i.test(message)) {
+          setLoginMessage("كلمة المرور ضعيفة جداً (6 أحرف على الأقل).");
+        } else {
+          setLoginMessage("تعذّر إنشاء الحساب. تحقّق من البيانات والاتصال.");
+        }
+      }
+      return;
+    }
+
     try {
       setLoginMessage("جاري تسجيل الدخول...");
       setSyncStatus("syncing", "جاري تسجيل الدخول...");
@@ -3010,6 +3092,12 @@ if (loginForm) {
       setSyncStatus("error", "فشل تسجيل الدخول");
       setLoginMessage("بيانات الدخول غير صحيحة أو الاتصال غير متاح.");
     }
+  });
+}
+
+if (authModeToggle) {
+  authModeToggle.addEventListener("click", () => {
+    setAuthMode(authMode === "signin" ? "signup" : "signin");
   });
 }
 

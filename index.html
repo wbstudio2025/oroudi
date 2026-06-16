@@ -5,20 +5,26 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>عروضي — محرر عروض الأسعار</title>
     <link rel="icon" href="assets/app-icon.ico">
-    <link rel="stylesheet" href="styles.css?v=v13">
+    <link rel="stylesheet" href="styles.css?v=v14">
   </head>
   <body>
     <section id="loginOverlay" class="login-overlay" aria-label="تسجيل الدخول إلى مشاريع المكتب" hidden>
       <form id="loginForm" class="login-card">
         <img src="assets/LOGO.png" alt="">
-        <h2>تسجيل دخول المكتب</h2>
-        <p>استخدم بيانات الدخول المشتركة لفتح مشاريع المكتب المحفوظة على الإنترنت.</p>
+        <h2 id="loginHeading">تسجيل الدخول</h2>
+        <p id="loginIntro">سجّل الدخول لفتح مشاريعك المحفوظة على الإنترنت.</p>
+        <label id="officeNameLabel" for="signupOfficeName" hidden>اسم المكتب / الشركة</label>
+        <input id="signupOfficeName" type="text" autocomplete="organization" placeholder="اسم المكتب كما يظهر على العروض" hidden>
         <label for="loginEmail">البريد الإلكتروني</label>
         <input id="loginEmail" type="email" autocomplete="username" required>
         <label for="loginPassword">كلمة المرور</label>
         <input id="loginPassword" type="password" autocomplete="current-password" required>
-        <button class="primary-btn" type="submit">دخول</button>
+        <button id="loginSubmitBtn" class="primary-btn" type="submit">دخول</button>
         <p id="loginStatus" class="login-status" role="alert"></p>
+        <p class="login-switch">
+          <span id="authSwitchPrompt">ليس لديك حساب؟</span>
+          <button id="authModeToggle" class="link-btn" type="button">إنشاء حساب جديد</button>
+        </p>
       </form>
     </section>
 
@@ -182,6 +188,6 @@
     <script src="supabase-config.js?v=v1"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="tafqit.js?v=v9"></script>
-    <script src="app.js?v=v13"></script>
+    <script src="app.js?v=v14"></script>
   </body>
 </html>

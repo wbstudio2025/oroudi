@@ -6,6 +6,11 @@ test-artifacts/
 .env.*
 !.env.example
 
+# Local credential / password notes — never commit
+supabase/Password_To_Okoudy_Project_on_Supabase.txt
+*[Pp]assword*.txt
+*[Ss]ecret*.txt
+
 # Node (no dependencies today, but keep CI/tooling output out of git)
 node_modules/
 npm-debug.log*

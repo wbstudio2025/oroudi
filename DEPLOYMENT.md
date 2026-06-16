@@ -89,21 +89,34 @@ The schema is in [`supabase/schema.sql`](supabase/schema.sql) and mirrors the fr
 shapes 1:1 (offices → members → projects, all JSONB), with Row-Level Security so each user only
 sees their own office.
 
+The app supports **self-serve signup with a private workspace per user**: anyone can create an
+account from the login card, and each new account gets its own isolated office and projects (RLS
+keeps them from seeing anyone else's). Setup:
+
 1. Create a Supabase project (note the project URL + anon key under **Project Settings → API**).
 2. **SQL Editor** → paste and run [`supabase/schema.sql`](supabase/schema.sql).
    This creates the `offices`, `members`, `projects` tables, RLS policies, and the private
    `office-assets` storage bucket (logos, stamps, footer art, QR images).
-3. **Authentication → Users** → add the shared office login (email + password). Copy its `user_id`.
-4. Edit [`supabase/shared-office-setup.sql`](supabase/shared-office-setup.sql): replace the
-   placeholder `00000000-...` UUID with that `user_id`, then run it in the SQL Editor. This creates
-   the office row and links the user as its owner.
+3. **SQL Editor** → paste and run [`supabase/self-serve-signup.sql`](supabase/self-serve-signup.sql).
+   This installs a trigger so every new signup automatically gets its own office + owner membership
+   (otherwise a brand-new user has no office and is locked out). _Run this instead of
+   `shared-office-setup.sql`._
+4. **Authentication → Sign In / Providers → Email:** enable the Email provider and **"Allow new
+   users to sign up"**. To start, turn **"Confirm email" OFF** so signup logs the user straight in.
+   (You can enable confirmation later — when you do, also set **Site URL** and **Redirect URLs**
+   under **Authentication → URL Configuration**, e.g. your deployed origin and
+   `http://localhost:8000` for local testing.)
 5. Put the Project URL + anon key into the frontend (see *Supabase config on Cloudflare* above).
+
+> **Single shared office instead?** If you'd rather have one office whose projects everyone shares
+> (the older model), skip step 3 and instead add one user under **Authentication → Users**, then run
+> [`supabase/shared-office-setup.sql`](supabase/shared-office-setup.sql) with that user's `user_id`.
 
 ### How sync behaves
 
-When a user logs in, cloud projects load from Supabase. If the cloud is empty on first login, the
-current browser's local projects are uploaded once; after that **cloud data wins** and localStorage
-is only a cache/fallback. Concurrent edits use last-save-wins for this first shared-office version.
+When a user logs in, their office's cloud projects load from Supabase. If the cloud is empty on
+first login, the current browser's local projects are uploaded once; after that **cloud data wins**
+and localStorage is only a cache/fallback. Concurrent edits use last-save-wins.
 
 ---
 

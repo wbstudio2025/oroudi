@@ -132,6 +132,30 @@ body {
   font-weight: 700;
 }
 
+.login-switch {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 4px !important;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.login-card button.link-btn {
+  width: auto;
+  min-height: 0;
+  margin-top: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--navy);
+  font-weight: 900;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
 button,
 input,
 select,
