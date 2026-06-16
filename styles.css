@@ -1523,12 +1523,14 @@ textarea {
 }
 
 .payment-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
   gap: 10px;
 }
 
 .payment-step {
+  flex: 0 1 calc((100% - 20px) / 3);
   padding: 14px 12px;
   text-align: center;
 }

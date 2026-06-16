@@ -1700,6 +1700,7 @@ function renderEditor() {
         <input type="text" data-term-add-input placeholder="إضافة شرط جديد…" aria-label="إضافة شرط مالي جديد">
         <button type="button" class="scope-add" data-term-add>إضافة</button>
       </div>
+      <button type="button" class="reset-defaults-btn" data-reset-terms>إعادة تعبئة القائمة الافتراضية</button>
     </section>
     <section class="form-group scope-editor">
       <h3>جدول الدفعات والضريبة</h3>
@@ -1708,6 +1709,7 @@ function renderEditor() {
       <div class="scope-add-row">
         <button type="button" class="scope-add" data-payment-add>إضافة دفعة</button>
       </div>
+      <button type="button" class="reset-defaults-btn" data-reset-payments>إعادة تعبئة القائمة الافتراضية</button>
     </section>
     <section class="form-group">
       <h3>أسعار الخدمات الاختيارية</h3>
@@ -2630,6 +2632,22 @@ editorForm.addEventListener("click", (event) => {
 
   if (event.target.closest("[data-reset-deliverables]")) {
     quotationData.deliverables = cloneData(getDefaultQuotationData().deliverables);
+    renderEditor();
+    renderPreview();
+    saveActiveProject();
+    return;
+  }
+
+  if (event.target.closest("[data-reset-payments]")) {
+    quotationData.paymentSchedule = cloneData(getDefaultQuotationData().paymentSchedule);
+    renderEditor();
+    renderPreview();
+    saveActiveProject();
+    return;
+  }
+
+  if (event.target.closest("[data-reset-terms]")) {
+    quotationData.financialTerms = cloneData(getDefaultQuotationData().financialTerms);
     renderEditor();
     renderPreview();
     saveActiveProject();
