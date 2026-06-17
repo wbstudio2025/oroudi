@@ -265,10 +265,33 @@ test("cover title is driven by a permit type dropdown", () => {
     "تجديد رخصة بناء",
     "تصحيح بيانات رخصة بناء"
   ].forEach((permitName) => assert.ok(app.includes(permitName), permitName));
-  assert.match(app, /\["permitType", "نوع الرخصة", "permit"\]/);
+  assert.match(app, /\["permitType", "نوع الخدمة", "permit"\]/);
   assert.match(app, /function getPermitTitle\(\)/);
   assert.match(app, /<h2>\$\{escapeHtml\(getPermitTitle\(\)\)\}<\/h2>/);
   assert.doesNotMatch(app, /<h2>عرض خدمات التصميم وإصدار رخصة بناء<\/h2>/);
+});
+
+test("services are organized into a filterable category catalog", () => {
+  // permitTypeOptions is now derived from a categorized catalog.
+  assert.match(app, /const serviceCatalog\s*=/);
+  assert.match(app, /const permitTypeOptions\s*=\s*serviceCatalog\.flatMap/);
+  // Categories span beyond building permits (the whole point of the change).
+  [
+    "رخص البناء",
+    "التصاميم والدراسات",
+    "أعمال المساحة",
+    "الإشراف الهندسي",
+    "شهادات وخدمات أخرى"
+  ].forEach((category) => assert.ok(app.includes(category), category));
+  // Representative non-building services exist.
+  ["إصدار قرار مساحي", "الإشراف الهندسي على التنفيذ"].forEach((service) =>
+    assert.ok(app.includes(service), service)
+  );
+  // serviceCategory is part of the quotation state and is a filter field above the service.
+  assert.match(app, /serviceCategory:\s*"رخص البناء"/);
+  assert.match(app, /\["serviceCategory", "فئة الخدمة", "category"\]/);
+  // Selecting a service loads its tailored defaults.
+  assert.match(app, /function applyServiceTemplate\(/);
 });
 
 test("project tools include save status without JSON import export controls", () => {

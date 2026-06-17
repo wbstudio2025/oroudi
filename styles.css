@@ -555,6 +555,11 @@ textarea {
   cursor: pointer;
 }
 
+/* Free-text field shown when the user picks "custom service" in the service dropdown. */
+.custom-service-input {
+  margin-top: 8px;
+}
+
 .money-input-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -1186,9 +1191,10 @@ textarea {
   font-size: clamp(18px, 3.5vw, 34px);
   line-height: 1.2;
   font-weight: 900;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  /* Long service titles wrap onto a second line and stay centered instead of being
+     clipped with an ellipsis, so any service name fits within the A4 width. */
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 .cover-title p {

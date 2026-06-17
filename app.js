@@ -87,7 +87,9 @@ const quotationData = {
   responsibleTitle: "المهندس",
   responsibleName: "",
   responsiblePhone: "",
+  serviceCategory: "رخص البناء",
   permitType: "إصدار رخصة بناء",
+  serviceIsCustom: false,
   projectType: "فيلا سكنية",
   city: "",
   district: "",
@@ -258,36 +260,601 @@ const projectTypeOptions = [
   "مصنع أو ورشة"
 ];
 
-const permitTypeOptions = [
+// Built-in curated catalog of Saudi engineering-office services, grouped by category so the
+// editor can show a short, filtered list (فئة الخدمة → نوع الخدمة) instead of one long dropdown.
+// Each service carries its own cover title plus a tailored scope of work and deliverables that
+// load automatically when the service is selected (still editable, with the reset buttons).
+// scopeGroups/deliverables === null means "use the office's default lists" (getDefaultQuotationData) —
+// the canonical building permit keeps honoring each office's saved defaults for backward compatibility.
+const serviceCatalog = [
   {
-    value: "إصدار رخصة بناء",
-    title: "عرض خدمات التصميم وإصدار رخصة بناء"
+    category: "رخص البناء",
+    services: [
+      {
+        value: "إصدار رخصة بناء",
+        title: "عرض خدمات التصميم وإصدار رخصة بناء",
+        scopeGroups: null,
+        deliverables: null
+      },
+      {
+        value: "إصدار رخصة تسوير",
+        title: "عرض خدمات التصميم وإصدار رخصة تسوير",
+        scopeGroups: [
+          {
+            number: "01",
+            title: "الأعمال الأولية",
+            items: [
+              { name: "رفع مساحي", enabled: true, description: "تحديد حدود الأرض ومناسيبها." },
+              { name: "إصدار قرار مساحي", enabled: true, description: "تجهيز متطلبات القرار عبر الجهات المختصة." }
+            ]
+          },
+          {
+            number: "02",
+            title: "تصميم السور والرخصة",
+            items: [
+              { name: "تصميم السور والبوابات", enabled: true, description: "تصميم الواجهات والمداخل للسور." },
+              { name: "المخطط الإنشائي للسور", enabled: true, description: "حساب الأساسات والعناصر الحاملة للسور." },
+              { name: "إصدار رخصة التسوير", enabled: true, description: "متابعة رفع الطلب حتى إصدار الرخصة." }
+            ]
+          }
+        ],
+        deliverables: [
+          { name: "مخطط السور المعتمد", enabled: true },
+          { name: "مخطط إنشائي للسور", enabled: true },
+          { name: "ملفات PDF للاعتماد", enabled: true },
+          { name: "متابعة إصدار رخصة التسوير", enabled: true }
+        ]
+      },
+      {
+        value: "إضافة وتعديل مكونات بناء",
+        title: "عرض خدمات إضافة وتعديل مكونات بناء",
+        scopeGroups: [
+          {
+            number: "01",
+            title: "الرفع والتقييم",
+            items: [
+              { name: "رفع مساحي للوضع القائم", enabled: true, description: "توثيق المبنى القائم قبل التعديل." },
+              { name: "تقييم المكونات الحالية", enabled: true, description: "تحديد ما يُضاف أو يُعدّل." }
+            ]
+          },
+          {
+            number: "02",
+            title: "التصميم والرخصة",
+            items: [
+              { name: "التصميم المعماري للإضافة والتعديل", enabled: true, description: "تصميم الفراغات الجديدة أو المعدّلة." },
+              { name: "التصميم الإنشائي للإضافة", enabled: true, description: "ربط الإضافة بالنظام الإنشائي القائم." },
+              { name: "إصدار رخصة الإضافة والتعديل", enabled: true, description: "متابعة الطلب حتى الاعتماد." }
+            ]
+          }
+        ],
+        deliverables: [
+          { name: "مخططات الإضافة والتعديل", enabled: true },
+          { name: "مخطط إنشائي للإضافة", enabled: true },
+          { name: "ملفات PDF للاعتماد", enabled: true },
+          { name: "متابعة إصدار الرخصة", enabled: true }
+        ]
+      },
+      {
+        value: "إصدار رخصة ترميم بناء",
+        title: "عرض خدمات إصدار رخصة ترميم بناء",
+        scopeGroups: [
+          {
+            number: "01",
+            title: "المعاينة والتقييم",
+            items: [
+              { name: "معاينة المبنى القائم", enabled: true, description: "حصر الأعمال المطلوبة للترميم." },
+              { name: "تقرير الحالة الإنشائية", enabled: true, description: "تقييم سلامة العناصر القائمة." }
+            ]
+          },
+          {
+            number: "02",
+            title: "مخططات الترميم والرخصة",
+            items: [
+              { name: "إعداد مخططات الترميم", enabled: true, description: "توثيق أعمال المعالجة والتطوير." },
+              { name: "إصدار رخصة الترميم", enabled: true, description: "متابعة الطلب حتى الاعتماد." }
+            ]
+          }
+        ],
+        deliverables: [
+          { name: "تقرير حالة المبنى", enabled: true },
+          { name: "مخططات الترميم", enabled: true },
+          { name: "ملفات PDF للاعتماد", enabled: true },
+          { name: "متابعة إصدار رخصة الترميم", enabled: true }
+        ]
+      },
+      {
+        value: "إصدار رخصة هدم بناء",
+        title: "عرض خدمات إصدار رخصة هدم بناء",
+        scopeGroups: [
+          {
+            number: "01",
+            title: "الرفع والمعاينة",
+            items: [
+              { name: "رفع مساحي للموقع", enabled: true, description: "توثيق الموقع والمبنى المراد هدمه." },
+              { name: "معاينة المبنى", enabled: true, description: "تقييم الوضع تمهيداً للهدم." }
+            ]
+          },
+          {
+            number: "02",
+            title: "مخطط الهدم والإشراف",
+            items: [
+              { name: "إعداد مخطط الهدم واشتراطات السلامة", enabled: true, description: "تحديد آلية الهدم ومتطلبات السلامة." },
+              { name: "تعهد الإشراف على الهدم", enabled: true, description: "إصدار التعهد المطلوب للرخصة." },
+              { name: "إصدار رخصة الهدم", enabled: true, description: "متابعة الطلب حتى الاعتماد." }
+            ]
+          }
+        ],
+        deliverables: [
+          { name: "مخطط الهدم", enabled: true },
+          { name: "تعهد الإشراف على الهدم", enabled: true },
+          { name: "ملفات PDF للاعتماد", enabled: true },
+          { name: "متابعة إصدار رخصة الهدم", enabled: true }
+        ]
+      },
+      {
+        value: "تجديد رخصة بناء",
+        title: "عرض خدمات تجديد رخصة بناء",
+        scopeGroups: [
+          {
+            number: "01",
+            title: "المراجعة والتجديد",
+            items: [
+              { name: "مراجعة الرخصة المنتهية", enabled: true, description: "حصر متطلبات التجديد." },
+              { name: "تحديث بيانات الطلب", enabled: true, description: "تجهيز المستندات اللازمة." },
+              { name: "متابعة إصدار الرخصة المجددة", enabled: true, description: "المتابعة حتى الاعتماد." }
+            ]
+          }
+        ],
+        deliverables: [
+          { name: "تحديث ملف الرخصة", enabled: true },
+          { name: "ملفات PDF للاعتماد", enabled: true },
+          { name: "متابعة تجديد الرخصة", enabled: true }
+        ]
+      },
+      {
+        value: "تصحيح بيانات رخصة بناء",
+        title: "عرض خدمات تصحيح بيانات رخصة بناء",
+        scopeGroups: [
+          {
+            number: "01",
+            title: "المراجعة والتصحيح",
+            items: [
+              { name: "مراجعة بيانات الرخصة الحالية", enabled: true, description: "حصر البنود المطلوب تصحيحها." },
+              { name: "تقديم طلب التصحيح", enabled: true, description: "تجهيز ورفع طلب التصحيح." },
+              { name: "متابعة اعتماد التصحيح", enabled: true, description: "المتابعة حتى الاعتماد." }
+            ]
+          }
+        ],
+        deliverables: [
+          { name: "ملف التصحيح المعتمد", enabled: true },
+          { name: "ملفات PDF للاعتماد", enabled: true },
+          { name: "متابعة اعتماد التصحيح", enabled: true }
+        ]
+      }
+    ]
   },
   {
-    value: "إصدار رخصة تسوير",
-    title: "عرض خدمات التصميم وإصدار رخصة تسوير"
+    category: "التصاميم والدراسات",
+    services: [
+      {
+        value: "التصميم المعماري والإنشائي",
+        title: "عرض خدمات التصميم المعماري والإنشائي",
+        scopeGroups: [
+          {
+            number: "01",
+            title: "التصميم المعماري",
+            items: [
+              { name: "المخططات المعمارية", enabled: true, description: "توزيع الفراغات والواجهات حسب احتياج المشروع." },
+              { name: "منظور خارجي واحد", enabled: true, description: "إظهار الواجهة الرئيسية بصورة واقعية." }
+            ]
+          },
+          {
+            number: "02",
+            title: "التصميم الإنشائي",
+            items: [
+              { name: "حساب النظام الإنشائي", enabled: true, description: "تحديد النظام والعناصر الحاملة." },
+              { name: "مخططات العناصر الإنشائية", enabled: true, description: "تفاصيل الأساسات والأعمدة والأسقف." }
+            ]
+          }
+        ],
+        deliverables: [
+          { name: "مخططات معمارية", enabled: true },
+          { name: "مخططات إنشائية", enabled: true },
+          { name: "منظور خارجي واحد", enabled: true },
+          { name: "ملفات PDF للتسليم", enabled: true }
+        ]
+      },
+      {
+        value: "التصميم الكهروميكانيكي",
+        title: "عرض خدمات التصميم الكهروميكانيكي",
+        scopeGroups: [
+          {
+            number: "01",
+            title: "التصميم الكهربائي",
+            items: [
+              { name: "تخطيط الأحمال الكهربائية", enabled: true, description: "حساب الأحمال وتوزيع اللوحات." },
+              { name: "مسارات التمديدات الكهربائية", enabled: true, description: "تخطيط مسارات الإنارة والقوى." }
+            ]
+          },
+          {
+            number: "02",
+            title: "التصميم الميكانيكي",
+            items: [
+              { name: "تصميم التكييف والتهوية", enabled: true, description: "تحديد الأحمال الحرارية والأنظمة." },
+              { name: "تصميم السباكة والصرف", enabled: true, description: "تنسيق التغذية والصرف." }
+            ]
+          }
+        ],
+        deliverables: [
+          { name: "مخططات كهربائية", enabled: true },
+          { name: "مخططات ميكانيكية", enabled: true },
+          { name: "جداول الأحمال", enabled: true },
+          { name: "ملفات PDF للتسليم", enabled: true }
+        ]
+      },
+      {
+        value: "دراسة التربة والفحص الجيوتقني",
+        title: "عرض خدمات دراسة التربة",
+        scopeGroups: [
+          {
+            number: "01",
+            title: "الأعمال الميدانية",
+            items: [
+              { name: "حفر الجسات", enabled: true, description: "تنفيذ الجسات حسب مساحة الموقع." },
+              { name: "أخذ العينات", enabled: true, description: "جمع عينات التربة للتحليل." }
+            ]
+          },
+          {
+            number: "02",
+            title: "التحاليل والتقرير",
+            items: [
+              { name: "التحاليل المخبرية", enabled: true, description: "فحص خواص التربة في المختبر." },
+              { name: "إعداد التقرير الجيوتقني والتوصيات", enabled: true, description: "توصيات التأسيس وقدرة التحمل." }
+            ]
+          }
+        ],
+        deliverables: [
+          { name: "تقرير دراسة التربة", enabled: true },
+          { name: "توصيات التأسيس", enabled: true },
+          { name: "ملفات PDF للتسليم", enabled: true }
+        ]
+      },
+      {
+        value: "التصميم الداخلي",
+        title: "عرض خدمات التصميم الداخلي",
+        scopeGroups: [
+          {
+            number: "01",
+            title: "التصور والتخطيط",
+            items: [
+              { name: "دراسة الفراغات الداخلية", enabled: true, description: "توزيع الأثاث والحركة." },
+              { name: "اللوحات المزاجية والخامات", enabled: true, description: "اختيار الطابع واللون والخامات." }
+            ]
+          },
+          {
+            number: "02",
+            title: "التصميم التنفيذي",
+            items: [
+              { name: "مخططات التشطيبات", enabled: true, description: "تفاصيل الأرضيات والأسقف والجدران." },
+              { name: "منظورات داخلية", enabled: true, description: "إظهار الفراغات بصورة واقعية." }
+            ]
+          }
+        ],
+        deliverables: [
+          { name: "مخططات التصميم الداخلي", enabled: true },
+          { name: "منظورات داخلية", enabled: true },
+          { name: "جداول التشطيبات", enabled: true },
+          { name: "ملفات PDF للتسليم", enabled: true }
+        ]
+      }
+    ]
   },
   {
-    value: "إضافة وتعديل مكونات بناء",
-    title: "عرض خدمات إضافة وتعديل مكونات بناء"
+    category: "أعمال المساحة",
+    services: [
+      {
+        value: "إصدار قرار مساحي",
+        title: "عرض خدمات إصدار قرار مساحي",
+        scopeGroups: [
+          {
+            number: "01",
+            title: "الرفع المساحي",
+            items: [
+              { name: "رفع مساحي للموقع", enabled: true, description: "تحديد حدود الأرض بدقة." },
+              { name: "تحديد الإحداثيات والحدود", enabled: true, description: "ربط الموقع بالشبكة المساحية." }
+            ]
+          },
+          {
+            number: "02",
+            title: "إصدار القرار",
+            items: [
+              { name: "تجهيز متطلبات القرار", enabled: true, description: "إعداد المستندات المساحية." },
+              { name: "متابعة إصدار القرار", enabled: true, description: "المتابعة عبر الجهات المختصة." }
+            ]
+          }
+        ],
+        deliverables: [
+          { name: "المخطط المساحي", enabled: true },
+          { name: "القرار المساحي المعتمد", enabled: true },
+          { name: "ملفات PDF للتسليم", enabled: true }
+        ]
+      },
+      {
+        value: "الرفع المساحي",
+        title: "عرض خدمات الرفع المساحي",
+        scopeGroups: [
+          {
+            number: "01",
+            title: "الأعمال الميدانية",
+            items: [
+              { name: "الرفع المساحي بالأجهزة", enabled: true, description: "رفع الموقع بأجهزة المساحة." },
+              { name: "تحديد المناسيب والحدود", enabled: true, description: "توثيق المناسيب وحدود الأرض." }
+            ]
+          },
+          {
+            number: "02",
+            title: "المخرجات المساحية",
+            items: [
+              { name: "إعداد المخطط المساحي", enabled: true, description: "رسم المخطط من بيانات الرفع." },
+              { name: "حساب المساحات", enabled: true, description: "احتساب المساحات والإحداثيات." }
+            ]
+          }
+        ],
+        deliverables: [
+          { name: "مخطط الرفع المساحي", enabled: true },
+          { name: "جدول الإحداثيات والمساحات", enabled: true },
+          { name: "ملفات PDF و CAD للتسليم", enabled: true }
+        ]
+      },
+      {
+        value: "إفراز ودمج الأراضي",
+        title: "عرض خدمات إفراز ودمج الأراضي",
+        scopeGroups: [
+          {
+            number: "01",
+            title: "الدراسة المساحية",
+            items: [
+              { name: "رفع مساحي للأرض", enabled: true, description: "توثيق الوضع القائم للأرض." },
+              { name: "دراسة حدود الصكوك", enabled: true, description: "مطابقة الحدود مع الصكوك." }
+            ]
+          },
+          {
+            number: "02",
+            title: "الإفراز أو الدمج",
+            items: [
+              { name: "إعداد مخطط الإفراز أو الدمج", enabled: true, description: "تقسيم أو دمج القطع حسب الطلب." },
+              { name: "متابعة الاعتماد", enabled: true, description: "المتابعة عبر الجهات المختصة." }
+            ]
+          }
+        ],
+        deliverables: [
+          { name: "مخطط الإفراز أو الدمج", enabled: true },
+          { name: "ملفات PDF للتسليم", enabled: true },
+          { name: "متابعة الاعتماد", enabled: true }
+        ]
+      },
+      {
+        value: "أعمال مساحة عامة",
+        title: "عرض خدمات أعمال المساحة",
+        scopeGroups: [
+          {
+            number: "01",
+            title: "الخدمات المساحية",
+            items: [
+              { name: "رفع مساحي", enabled: true, description: "رفع الموقع وتوثيقه." },
+              { name: "ربط إحداثي", enabled: true, description: "ربط الموقع بالشبكة المساحية." },
+              { name: "تحديد المناسيب", enabled: true, description: "قياس مناسيب الموقع." }
+            ]
+          }
+        ],
+        deliverables: [
+          { name: "المخططات المساحية", enabled: true },
+          { name: "تقرير الأعمال المساحية", enabled: true },
+          { name: "ملفات PDF و CAD للتسليم", enabled: true }
+        ]
+      }
+    ]
   },
   {
-    value: "إصدار رخصة ترميم بناء",
-    title: "عرض خدمات إصدار رخصة ترميم بناء"
+    category: "الإشراف الهندسي",
+    services: [
+      {
+        value: "الإشراف الهندسي على التنفيذ",
+        title: "عرض خدمات الإشراف الهندسي على التنفيذ",
+        scopeGroups: [
+          {
+            number: "01",
+            title: "الإشراف الدوري",
+            items: [
+              { name: "زيارات إشرافية دورية", enabled: true, description: "زيارات ميدانية لمتابعة التنفيذ." },
+              { name: "مطابقة التنفيذ للمخططات", enabled: true, description: "التحقق من مطابقة الأعمال للرخصة." }
+            ]
+          },
+          {
+            number: "02",
+            title: "التقارير والاعتماد",
+            items: [
+              { name: "تقارير مراحل التنفيذ", enabled: true, description: "توثيق تقدم العمل ومطابقته." },
+              { name: "اعتماد مراحل التنفيذ", enabled: true, description: "اعتماد المراحل عبر بلدي." }
+            ]
+          }
+        ],
+        deliverables: [
+          { name: "تقارير الإشراف الدورية", enabled: true },
+          { name: "محاضر الزيارات", enabled: true },
+          { name: "شهادة مطابقة التنفيذ", enabled: true }
+        ]
+      },
+      {
+        value: "تعهد الإشراف الهندسي",
+        title: "عرض خدمات تعهد الإشراف الهندسي",
+        scopeGroups: [
+          {
+            number: "01",
+            title: "التعهد والمتابعة",
+            items: [
+              { name: "إصدار تعهد الإشراف", enabled: true, description: "إصدار التعهد المطلوب للرخصة." },
+              { name: "ربط التعهد بالرخصة ومتابعته", enabled: true, description: "المتابعة عبر منصة بلدي." }
+            ]
+          }
+        ],
+        deliverables: [
+          { name: "تعهد الإشراف المعتمد", enabled: true },
+          { name: "ملفات PDF للتسليم", enabled: true }
+        ]
+      },
+      {
+        value: "الإشراف والمتابعة الدورية",
+        title: "عرض خدمات الإشراف والمتابعة الدورية",
+        scopeGroups: [
+          {
+            number: "01",
+            title: "المتابعة الدورية",
+            items: [
+              { name: "زيارات متابعة دورية", enabled: true, description: "زيارات منتظمة حسب الاتفاق." },
+              { name: "رصد ملاحظات الموقع", enabled: true, description: "توثيق الملاحظات والتوصيات." }
+            ]
+          }
+        ],
+        deliverables: [
+          { name: "تقارير المتابعة الدورية", enabled: true },
+          { name: "محاضر الملاحظات", enabled: true }
+        ]
+      }
+    ]
   },
   {
-    value: "إصدار رخصة هدم بناء",
-    title: "عرض خدمات إصدار رخصة هدم بناء"
-  },
-  {
-    value: "تجديد رخصة بناء",
-    title: "عرض خدمات تجديد رخصة بناء"
-  },
-  {
-    value: "تصحيح بيانات رخصة بناء",
-    title: "عرض خدمات تصحيح بيانات رخصة بناء"
+    category: "شهادات وخدمات أخرى",
+    services: [
+      {
+        value: "إصدار شهادة إتمام بناء",
+        title: "عرض خدمات إصدار شهادة إتمام البناء",
+        scopeGroups: [
+          {
+            number: "01",
+            title: "المعاينة والمطابقة",
+            items: [
+              { name: "معاينة المبنى المنفذ", enabled: true, description: "معاينة المبنى بعد التنفيذ." },
+              { name: "مطابقة المبنى للرخصة", enabled: true, description: "التحقق من المطابقة للمخططات." }
+            ]
+          },
+          {
+            number: "02",
+            title: "إصدار الشهادة",
+            items: [
+              { name: "تجهيز متطلبات الشهادة", enabled: true, description: "إعداد المستندات اللازمة." },
+              { name: "متابعة إصدار شهادة الإتمام", enabled: true, description: "المتابعة حتى الإصدار." }
+            ]
+          }
+        ],
+        deliverables: [
+          { name: "تقرير المطابقة", enabled: true },
+          { name: "شهادة إتمام البناء", enabled: true },
+          { name: "ملفات PDF للتسليم", enabled: true }
+        ]
+      },
+      {
+        value: "تصحيح وضع مبنى قائم",
+        title: "عرض خدمات تصحيح وضع مبنى قائم",
+        scopeGroups: [
+          {
+            number: "01",
+            title: "الرفع والتقييم",
+            items: [
+              { name: "رفع مساحي للمبنى القائم", enabled: true, description: "توثيق الوضع القائم." },
+              { name: "حصر المخالفات", enabled: true, description: "تحديد ما يلزم تصحيحه." }
+            ]
+          },
+          {
+            number: "02",
+            title: "التصحيح والاعتماد",
+            items: [
+              { name: "إعداد مخططات الوضع القائم", enabled: true, description: "توثيق المبنى كما هو منفّذ." },
+              { name: "متابعة تصحيح الوضع", enabled: true, description: "المتابعة حتى الاعتماد." }
+            ]
+          }
+        ],
+        deliverables: [
+          { name: "مخططات الوضع القائم", enabled: true },
+          { name: "ملف التصحيح", enabled: true },
+          { name: "متابعة الاعتماد", enabled: true }
+        ]
+      },
+      {
+        value: "استشارات هندسية",
+        title: "عرض خدمات الاستشارات الهندسية",
+        scopeGroups: [
+          {
+            number: "01",
+            title: "الاستشارة الفنية",
+            items: [
+              { name: "دراسة الحالة", enabled: true, description: "تحليل المتطلبات والوضع القائم." },
+              { name: "تقديم التوصيات الفنية", enabled: true, description: "توصيات هندسية مكتوبة." }
+            ]
+          }
+        ],
+        deliverables: [
+          { name: "تقرير استشاري", enabled: true },
+          { name: "التوصيات الفنية", enabled: true }
+        ]
+      }
+    ]
   }
 ];
+
+// Flattened list of every service (used by the cover-title lookup and the filtered editor dropdown).
+const permitTypeOptions = serviceCatalog.flatMap((cat) => cat.services);
+
+// Sentinel dropdown value for "type my own service name". When chosen, the user names the
+// service freely and the cover title becomes عرض خدمات <اسم الخدمة>.
+const CUSTOM_SERVICE_VALUE = "__custom__";
+
+function isCustomService(value) {
+  const name = String(value || "").trim();
+  return name !== "" && !findServiceByValue(name);
+}
+
+function serviceCategoryFor(value) {
+  const match = serviceCatalog.find((cat) => cat.services.some((service) => service.value === value));
+  return match ? match.category : serviceCatalog[0].category;
+}
+
+function findServiceByValue(value) {
+  return permitTypeOptions.find((service) => service.value === value) || null;
+}
+
+// The scope of work + deliverables to load for a service. A service may defer to the office's
+// saved defaults (scopeGroups/deliverables === null) — used by the canonical building permit so
+// each office keeps its customized defaults; every other service uses its tailored catalog bundle.
+function effectiveServiceTemplate(value) {
+  const service = findServiceByValue(value);
+  const fallback = getDefaultQuotationData();
+
+  if (!service) {
+    return {
+      title: getPermitTitle(),
+      scopeGroups: cloneData(fallback.scopeGroups),
+      deliverables: cloneData(fallback.deliverables)
+    };
+  }
+
+  return {
+    title: service.title,
+    scopeGroups: service.scopeGroups ? cloneData(service.scopeGroups) : cloneData(fallback.scopeGroups),
+    deliverables: service.deliverables ? cloneData(service.deliverables) : cloneData(fallback.deliverables)
+  };
+}
+
+// Load a service's tailored template into the current quotation (used when the category/service
+// dropdowns change). Replaces scope + deliverables; the cover title follows automatically.
+function applyServiceTemplate(value) {
+  const template = effectiveServiceTemplate(value);
+  quotationData.permitType = value;
+  quotationData.serviceCategory = serviceCategoryFor(value);
+  quotationData.serviceIsCustom = false;
+  quotationData.scopeGroups = template.scopeGroups;
+  quotationData.deliverables = template.deliverables;
+}
 
 const clientTitleOptions = ["السيد", "السيدة"];
 const responsibleTitleOptions = ["المهندس", "المهندسة", "السيد", "السيدة"];
@@ -314,7 +881,8 @@ const fields = [
   {
     title: "بيانات المشروع",
     items: [
-      ["permitType", "نوع الرخصة", "permit"],
+      ["serviceCategory", "فئة الخدمة", "category"],
+      ["permitType", "نوع الخدمة", "permit"],
       ["projectType", "نوع المشروع", "select"],
       ["city", "المدينة"],
       ["district", "الحي"],
@@ -511,7 +1079,13 @@ function getPaymentAmount(percent) {
 
 function getPermitTitle() {
   const selectedPermit = permitTypeOptions.find((permit) => permit.value === quotationData.permitType);
-  return selectedPermit ? selectedPermit.title : permitTypeOptions[0].title;
+  if (selectedPermit) {
+    return selectedPermit.title;
+  }
+
+  // Custom (user-typed) service name → derive the same "عرض خدمات …" heading.
+  const custom = String(quotationData.permitType || "").trim();
+  return custom ? `عرض خدمات ${custom}` : permitTypeOptions[0].title;
 }
 
 function getClientDisplayName(data = quotationData) {
@@ -1132,6 +1706,17 @@ function migrateProjectData(data) {
     migratedData.responsiblePhone = "";
   }
 
+  // The service category is new; older quotations only stored permitType. Derive the
+  // category from the saved service so the filtered dropdown opens on the right group.
+  if (!migratedData.serviceCategory) {
+    migratedData.serviceCategory = serviceCategoryFor(migratedData.permitType);
+  }
+
+  // Restore custom-service mode for saved quotations whose service name isn't in the catalog.
+  if (migratedData.serviceIsCustom === undefined) {
+    migratedData.serviceIsCustom = isCustomService(migratedData.permitType);
+  }
+
   // Quotations saved before auto-tafqit had a hand-typed written amount; keep it.
   if (migratedData.mainPriceWrittenManual === undefined && String(migratedData.mainPriceWritten || "").trim()) {
     migratedData.mainPriceWrittenManual = true;
@@ -1499,9 +2084,9 @@ function renderEditor() {
             `;
           }
 
-          if (type === "permit") {
-            const options = permitTypeOptions
-              .map((permit) => `<option value="${escapeHtml(permit.value)}" ${permit.value === quotationData[key] ? "selected" : ""}>${escapeHtml(permit.value)}</option>`)
+          if (type === "category") {
+            const options = serviceCatalog
+              .map((cat) => `<option value="${escapeHtml(cat.category)}" ${cat.category === quotationData[key] ? "selected" : ""}>${escapeHtml(cat.category)}</option>`)
               .join("");
 
             return `
@@ -1510,6 +2095,25 @@ function renderEditor() {
                 <select id="${key}" data-key="${key}">
                   ${options}
                 </select>
+              </div>
+            `;
+          }
+
+          if (type === "permit") {
+            const activeCategory = serviceCatalog.find((cat) => cat.category === quotationData.serviceCategory) || serviceCatalog[0];
+            const custom = quotationData.serviceIsCustom === true;
+            const options = activeCategory.services
+              .map((service) => `<option value="${escapeHtml(service.value)}" ${service.value === quotationData[key] ? "selected" : ""}>${escapeHtml(service.value)}</option>`)
+              .join("")
+              + `<option value="${CUSTOM_SERVICE_VALUE}" ${custom ? "selected" : ""}>✏️ خدمة مخصّصة (كتابة)…</option>`;
+
+            return `
+              <div class="field">
+                <label for="${key}">${label}</label>
+                <select id="${key}" data-key="${key}">
+                  ${options}
+                </select>
+                ${custom ? `<input class="custom-service-input" data-custom-service type="text" value="${escapeHtml(quotationData[key])}" placeholder="اكتب اسم الخدمة كما تريد إظهاره في العرض" aria-label="اسم الخدمة المخصّصة">` : ""}
               </div>
             `;
           }
@@ -2324,6 +2928,47 @@ function updateEditorValue(event) {
   const serviceIndex = input.dataset.serviceIndex;
   const paymentIndex = input.dataset.paymentIndex;
 
+  // Free-typed custom service name: only the title changes; scope/deliverables are left as-is.
+  if (input.dataset.customService !== undefined) {
+    quotationData.permitType = input.value;
+    renderPreview();
+    saveActiveProject();
+    return;
+  }
+
+  // Service-type selection loads that service's tailored scope/deliverables/title.
+  if (key === "permitType") {
+    if (input.value === CUSTOM_SERVICE_VALUE) {
+      // Enter custom mode: blank the name for typing, keep the current scope/deliverables.
+      quotationData.serviceIsCustom = true;
+      quotationData.permitType = "";
+      renderEditor();
+      const customInput = editorForm.querySelector("[data-custom-service]");
+      if (customInput) {
+        customInput.focus();
+      }
+      renderPreview();
+      saveActiveProject();
+      return;
+    }
+
+    applyServiceTemplate(input.value);
+    renderEditor();
+    renderPreview();
+    saveActiveProject();
+    return;
+  }
+
+  // Changing the category narrows the service list and selects that category's first service.
+  if (key === "serviceCategory") {
+    const category = serviceCatalog.find((cat) => cat.category === input.value) || serviceCatalog[0];
+    applyServiceTemplate(category.services[0].value);
+    renderEditor();
+    renderPreview();
+    saveActiveProject();
+    return;
+  }
+
   if (input.dataset.scopeGroup !== undefined && input.dataset.scopeItem !== undefined) {
     quotationData.scopeGroups[Number(input.dataset.scopeGroup)].items[Number(input.dataset.scopeItem)].enabled = input.checked;
     renderPreview();
@@ -2676,7 +3321,7 @@ editorForm.addEventListener("click", (event) => {
   }
 
   if (event.target.closest("[data-reset-scope]")) {
-    quotationData.scopeGroups = cloneData(getDefaultQuotationData().scopeGroups);
+    quotationData.scopeGroups = effectiveServiceTemplate(quotationData.permitType).scopeGroups;
     renderEditor();
     renderPreview();
     saveActiveProject();
@@ -2684,7 +3329,7 @@ editorForm.addEventListener("click", (event) => {
   }
 
   if (event.target.closest("[data-reset-deliverables]")) {
-    quotationData.deliverables = cloneData(getDefaultQuotationData().deliverables);
+    quotationData.deliverables = effectiveServiceTemplate(quotationData.permitType).deliverables;
     renderEditor();
     renderPreview();
     saveActiveProject();
