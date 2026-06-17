@@ -981,6 +981,12 @@ async function uploadInitialLocalWorkspace(localProjects) {
     savedProjects = [firstProject];
   }
 
+  // Seed the new (empty) office with fresh project ids. The local ids may have
+  // been claimed by a different office on a shared browser (e.g. a previous user
+  // signed up here), and reusing them would make the cross-tenant upsert hit that
+  // office's rows and fail RLS. New ids keep this account's first upload isolated.
+  savedProjects = savedProjects.map((project) => ({ ...project, id: createProjectId() }));
+
   activeProjectId = savedProjects.some((project) => project.id === activeProjectId)
     ? activeProjectId
     : savedProjects[0].id;
@@ -1087,7 +1093,10 @@ async function initializeCloudSession() {
 
   cloudState.client.auth.onAuthStateChange((event, session) => {
     if (event === "SIGNED_IN" && session) {
-      loadCloudWorkspace();
+      // Defer out of the auth callback: supabase-js holds an internal lock while
+      // this runs, and awaiting further Supabase calls inside it (loadCloudWorkspace)
+      // contends with that lock and fails. setTimeout(0) runs it after the lock frees.
+      setTimeout(() => loadCloudWorkspace(), 0);
     } else if (event === "SIGNED_OUT") {
       cloudState.ready = false;
       cloudState.officeId = "";
@@ -3060,9 +3069,10 @@ if (loginForm) {
           setLoginMessage("");
         } else {
           // Email confirmation is on: no session yet, wait for the emailed link.
+          // setAuthMode clears the status line, so switch first, then show the notice.
+          setAuthMode("signin");
           setSyncStatus("error", "بانتظار تأكيد البريد");
           setLoginMessage("تم إرسال رابط التأكيد إلى بريدك الإلكتروني. افتحه ثم سجّل الدخول.");
-          setAuthMode("signin");
         }
       } catch (error) {
         setSyncStatus("error", "تعذّر إنشاء الحساب");
