@@ -5,12 +5,104 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>عروضي — محرر عروض الأسعار</title>
     <link rel="icon" href="assets/app-icon.ico">
-    <link rel="stylesheet" href="styles.css?v=v15">
+    <link rel="icon" type="image/svg+xml" href="assets/oroudy-icon.svg?v=v2">
+    <link rel="stylesheet" href="styles.css?v=v17">
   </head>
   <body>
+    <section id="introOverlay" class="intro-overlay" aria-label="مقدمة تعريفية بالتطبيق" hidden>
+      <div class="intro-card" role="dialog" aria-modal="true" aria-labelledby="introTitle">
+        <div class="intro-brand">
+          <img class="intro-logo" src="assets/oroudy-logo.svg?v=v2" alt="عروضي" id="introTitle">
+          <span class="intro-tag">عروض أسعار هندسية احترافية في دقائق</span>
+        </div>
+
+        <div class="intro-stage" id="introStage">
+          <figure class="intro-slide is-active" data-intro-slide>
+            <div class="intro-mock">
+              <svg viewBox="0 0 220 130" aria-hidden="true">
+                <rect x="30" y="22" width="160" height="30" rx="7" fill="#fff" stroke="var(--line)" stroke-width="2"/>
+                <text x="178" y="42" text-anchor="end" font-size="13" font-weight="900" fill="var(--muted)">فئة الخدمة</text>
+                <rect x="30" y="68" width="160" height="30" rx="7" fill="#fff" stroke="var(--gold)" stroke-width="2.5"/>
+                <text x="178" y="88" text-anchor="end" font-size="13" font-weight="900" fill="var(--navy)">نوع الخدمة</text>
+                <path d="M44 34l6 6 6-6" stroke="var(--muted)" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M44 80l6 6 6-6" stroke="var(--gold)" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+            <figcaption class="intro-cap"><span class="intro-step">١</span><b>اختر فئة ونوع الخدمة</b><span>حدّد فئة الخدمة (رخص بناء، مساحة، إشراف…) ثم الخدمة، فيُجهّز العرض تلقائياً.</span></figcaption>
+          </figure>
+
+          <figure class="intro-slide" data-intro-slide>
+            <div class="intro-mock">
+              <svg viewBox="0 0 220 130" aria-hidden="true">
+                <rect x="28" y="20" width="74" height="26" rx="6" fill="#fff" stroke="var(--line)" stroke-width="2"/>
+                <rect x="118" y="20" width="74" height="26" rx="6" fill="#fff" stroke="var(--line)" stroke-width="2"/>
+                <rect x="28" y="56" width="164" height="26" rx="6" fill="#fff" stroke="var(--line)" stroke-width="2"/>
+                <rect x="28" y="92" width="164" height="26" rx="6" fill="#fff" stroke="var(--gold)" stroke-width="2.5"/>
+                <line x1="40" y1="33" x2="92" y2="33" stroke="var(--muted)" stroke-width="3" stroke-linecap="round"/>
+                <line x1="130" y1="33" x2="182" y2="33" stroke="var(--muted)" stroke-width="3" stroke-linecap="round"/>
+                <line x1="40" y1="69" x2="150" y2="69" stroke="var(--muted)" stroke-width="3" stroke-linecap="round"/>
+                <line x1="40" y1="105" x2="120" y2="105" stroke="var(--gold)" stroke-width="3" stroke-linecap="round"/>
+              </svg>
+            </div>
+            <figcaption class="intro-cap"><span class="intro-step">٢</span><b>املأ بيانات العميل والمشروع</b><span>اكتب اسم العميل والمدينة وقيمة العرض — والقيمة تُحوّل إلى كتابة تلقائياً.</span></figcaption>
+          </figure>
+
+          <figure class="intro-slide" data-intro-slide>
+            <div class="intro-mock">
+              <svg viewBox="0 0 220 130" aria-hidden="true">
+                <rect x="74" y="12" width="72" height="106" rx="5" fill="#fff" stroke="var(--line)" stroke-width="2"/>
+                <rect x="74" y="12" width="72" height="16" rx="5" fill="var(--navy)"/>
+                <line x1="86" y1="42" x2="134" y2="42" stroke="var(--navy)" stroke-width="3" stroke-linecap="round"/>
+                <line x1="86" y1="54" x2="134" y2="54" stroke="var(--muted)" stroke-width="2.4" stroke-linecap="round"/>
+                <line x1="86" y1="64" x2="120" y2="64" stroke="var(--muted)" stroke-width="2.4" stroke-linecap="round"/>
+                <rect x="86" y="82" width="48" height="18" rx="4" fill="none" stroke="var(--gold)" stroke-width="2.5"/>
+                <line x1="92" y1="91" x2="128" y2="91" stroke="var(--gold)" stroke-width="3" stroke-linecap="round"/>
+              </svg>
+            </div>
+            <figcaption class="intro-cap"><span class="intro-step">٣</span><b>عايِن العرض مباشرة على ورق A4</b><span>كل تعديل يظهر فوراً في معاينة احترافية جاهزة للطباعة.</span></figcaption>
+          </figure>
+
+          <figure class="intro-slide" data-intro-slide>
+            <div class="intro-mock">
+              <svg viewBox="0 0 220 130" aria-hidden="true">
+                <rect x="34" y="50" width="68" height="30" rx="8" fill="var(--navy)"/>
+                <text x="68" y="70" text-anchor="middle" font-size="13" font-weight="900" fill="#fff">طباعة PDF</text>
+                <rect x="118" y="50" width="68" height="30" rx="8" fill="none" stroke="var(--gold)" stroke-width="2.5"/>
+                <text x="152" y="70" text-anchor="middle" font-size="13" font-weight="900" fill="var(--navy)">واتساب</text>
+              </svg>
+            </div>
+            <figcaption class="intro-cap"><span class="intro-step">٤</span><b>اطبع أو احفظ PDF وشارك</b><span>صدّر العرض كـ PDF أو أرسله للعميل عبر واتساب بضغطة واحدة.</span></figcaption>
+          </figure>
+
+          <figure class="intro-slide" data-intro-slide>
+            <div class="intro-mock">
+              <svg viewBox="0 0 220 130" aria-hidden="true">
+                <rect x="34" y="20" width="152" height="26" rx="6" fill="#fff" stroke="var(--gold)" stroke-width="2.5"/>
+                <rect x="34" y="54" width="152" height="26" rx="6" fill="#fff" stroke="var(--line)" stroke-width="2"/>
+                <rect x="34" y="88" width="152" height="26" rx="6" fill="#fff" stroke="var(--line)" stroke-width="2"/>
+                <line x1="48" y1="33" x2="130" y2="33" stroke="var(--navy)" stroke-width="3" stroke-linecap="round"/>
+                <line x1="48" y1="67" x2="120" y2="67" stroke="var(--muted)" stroke-width="3" stroke-linecap="round"/>
+                <line x1="48" y1="101" x2="120" y2="101" stroke="var(--muted)" stroke-width="3" stroke-linecap="round"/>
+              </svg>
+            </div>
+            <figcaption class="intro-cap"><span class="intro-step">٥</span><b>احفظ مشاريعك وارجع إليها</b><span>كل عروضك محفوظة ومتزامنة، تبحث فيها وتفتحها متى شئت.</span></figcaption>
+          </figure>
+        </div>
+
+        <div class="intro-dots" id="introDots" aria-hidden="true"></div>
+        <div class="intro-actions">
+          <button id="introSkipBtn" class="link-btn" type="button">تخطّي</button>
+          <button id="introNextBtn" class="primary-btn" type="button">التالي</button>
+        </div>
+      </div>
+    </section>
+
     <section id="loginOverlay" class="login-overlay" aria-label="تسجيل الدخول إلى مشاريع المكتب" hidden>
       <form id="loginForm" class="login-card">
-        <img src="assets/LOGO.png" alt="">
+        <div class="app-brand">
+          <img class="app-brand-logo" src="assets/oroudy-logo.svg?v=v2" alt="عروضي">
+          <span class="app-brand-tag">by wbstudio</span>
+        </div>
         <h2 id="loginHeading">تسجيل الدخول</h2>
         <p id="loginIntro">سجّل الدخول لفتح مشاريعك المحفوظة على الإنترنت.</p>
         <label id="officeNameLabel" for="signupOfficeName" hidden>اسم المكتب / الشركة</label>
@@ -25,6 +117,7 @@
           <span id="authSwitchPrompt">ليس لديك حساب؟</span>
           <button id="authModeToggle" class="link-btn" type="button">إنشاء حساب جديد</button>
         </p>
+        <button id="introReplayBtn" class="link-btn intro-replay" type="button">كيف يعمل التطبيق؟</button>
       </form>
     </section>
 
@@ -188,6 +281,6 @@
     <script src="supabase-config.js?v=v2"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="tafqit.js?v=v9"></script>
-    <script src="app.js?v=v19"></script>
+    <script src="app.js?v=v21"></script>
   </body>
 </html>

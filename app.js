@@ -260,6 +260,26 @@ const projectTypeOptions = [
   "مصنع أو ورشة"
 ];
 
+// نوع المشروع adapts to the chosen service category: building services list building types
+// (the default above), while surveying lists land / plot types. Any category can override here;
+// unlisted categories fall back to the building list.
+const projectTypesByCategory = {
+  "أعمال المساحة": [
+    "أرض سكنية",
+    "أرض تجارية",
+    "أرض زراعية",
+    "قطعة ضمن مخطط",
+    "أرض فضاء",
+    "مزرعة",
+    "استراحة",
+    "مجمع أراضٍ"
+  ]
+};
+
+function getProjectTypeOptions(category) {
+  return projectTypesByCategory[category] || projectTypeOptions;
+}
+
 // Built-in curated catalog of Saudi engineering-office services, grouped by category so the
 // editor can show a short, filtered list (فئة الخدمة → نوع الخدمة) instead of one long dropdown.
 // Each service carries its own cover title plus a tailored scope of work and deliverables that
@@ -2070,7 +2090,7 @@ function renderEditor() {
           }
 
           if (type === "select") {
-            const options = projectTypeOptions
+            const options = getProjectTypeOptions(quotationData.serviceCategory)
               .map((option) => `<option value="${escapeHtml(option)}" ${option === quotationData[key] ? "selected" : ""}>${escapeHtml(option)}</option>`)
               .join("");
 
@@ -2963,6 +2983,14 @@ function updateEditorValue(event) {
   if (key === "serviceCategory") {
     const category = serviceCatalog.find((cat) => cat.category === input.value) || serviceCatalog[0];
     applyServiceTemplate(category.services[0].value);
+
+    // نوع المشروع options depend on the category; switch to a matching one when the current
+    // value no longer fits (e.g. building type → land type when moving to أعمال المساحة).
+    const projectTypes = getProjectTypeOptions(quotationData.serviceCategory);
+    if (!projectTypes.includes(quotationData.projectType)) {
+      quotationData.projectType = projectTypes[0];
+    }
+
     renderEditor();
     renderPreview();
     saveActiveProject();
@@ -3764,9 +3792,121 @@ if (logoutBtn) {
   });
 }
 
+// First-visit walkthrough: an in-app animated intro (not a recorded GIF) that auto-plays
+// through the steps, can be skipped, and is reopened anytime via "كيف يعمل التطبيق؟".
+const INTRO_SEEN_KEY = "oroudyIntroSeen";
+const introOverlay = document.querySelector("#introOverlay");
+const introStage = document.querySelector("#introStage");
+const introDots = document.querySelector("#introDots");
+const introNextBtn = document.querySelector("#introNextBtn");
+const introSkipBtn = document.querySelector("#introSkipBtn");
+const introReplayBtn = document.querySelector("#introReplayBtn");
+const introSlides = introStage ? Array.from(introStage.querySelectorAll("[data-intro-slide]")) : [];
+
+let introIndex = 0;
+let introTimer = 0;
+const introReducedMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+function renderIntroSlide() {
+  introSlides.forEach((slide, i) => slide.classList.toggle("is-active", i === introIndex));
+  if (introDots) {
+    Array.from(introDots.children).forEach((dot, i) => dot.classList.toggle("is-active", i === introIndex));
+  }
+  if (introNextBtn) {
+    introNextBtn.textContent = introIndex === introSlides.length - 1 ? "ابدأ الآن" : "التالي";
+  }
+}
+
+function goToIntroSlide(index) {
+  introIndex = (index + introSlides.length) % introSlides.length;
+  renderIntroSlide();
+}
+
+function stopIntroAutoplay() {
+  clearInterval(introTimer);
+  introTimer = 0;
+}
+
+function startIntroAutoplay() {
+  if (introReducedMotion || introSlides.length < 2) {
+    return;
+  }
+  stopIntroAutoplay();
+  introTimer = setInterval(() => goToIntroSlide(introIndex + 1), 3200);
+}
+
+function hideIntro(markSeen) {
+  stopIntroAutoplay();
+  if (introOverlay) {
+    introOverlay.hidden = true;
+  }
+  if (markSeen) {
+    try {
+      localStorage.setItem(INTRO_SEEN_KEY, "1");
+    } catch (error) {
+      /* ignore storage failures */
+    }
+  }
+}
+
+function showIntro() {
+  if (!introOverlay || !introSlides.length) {
+    return;
+  }
+  introIndex = 0;
+  renderIntroSlide();
+  introOverlay.hidden = false;
+  startIntroAutoplay();
+}
+
+function maybeShowIntro() {
+  let seen = false;
+  try {
+    seen = localStorage.getItem(INTRO_SEEN_KEY) === "1";
+  } catch (error) {
+    seen = false;
+  }
+  if (!seen) {
+    showIntro();
+  }
+}
+
+if (introDots && introSlides.length) {
+  introSlides.forEach((slide, i) => {
+    const dot = document.createElement("button");
+    dot.type = "button";
+    dot.setAttribute("aria-label", `الخطوة ${i + 1}`);
+    dot.addEventListener("click", () => {
+      stopIntroAutoplay();
+      goToIntroSlide(i);
+    });
+    introDots.appendChild(dot);
+  });
+}
+
+if (introNextBtn) {
+  introNextBtn.addEventListener("click", () => {
+    if (introIndex === introSlides.length - 1) {
+      hideIntro(true);
+      return;
+    }
+    stopIntroAutoplay();
+    goToIntroSlide(introIndex + 1);
+  });
+}
+
+if (introSkipBtn) {
+  introSkipBtn.addEventListener("click", () => hideIntro(true));
+}
+
+if (introReplayBtn) {
+  introReplayBtn.addEventListener("click", () => showIntro());
+}
+
 async function bootstrapApp() {
   initializeProjects();
   renderApp();
+  maybeShowIntro();
   await initializeCloudSession();
 }
 

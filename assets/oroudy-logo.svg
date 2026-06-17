@@ -1,0 +1,41 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">عروضي Logo</title>
+  <desc id="desc">Minimal black and white logo for Aroodi, a fast quotation generator for architects.</desc>
+  <rect width="1024" height="1024" fill="white"/>
+
+  <!-- Icon group: quotation document + architectural linework + approval check -->
+  <g id="aroodi-icon" stroke="black" stroke-width="18" stroke-linecap="round" stroke-linejoin="round">
+    <!-- document outline -->
+    <path d="M383 190H604L690 276V566H383V190Z"/>
+    <path d="M604 190V276H690" fill="black" stroke="black"/>
+
+    <!-- quotation mark blocks -->
+    <path d="M457 300C457 279 471 263 492 263V285C482 285 477 291 477 300H497V346H457V300Z" fill="black" stroke="none"/>
+    <path d="M524 300C524 279 538 263 559 263V285C549 285 544 291 544 300H564V346H524V300Z" fill="black" stroke="none"/>
+
+    <!-- document text lines -->
+    <path d="M470 405H602"/>
+    <path d="M470 458H602"/>
+
+    <!-- check mark -->
+    <path d="M533 535L570 572L631 498"/>
+
+    <!-- simplified architectural geometry -->
+    <path d="M260 566V482L352 408V566"/>
+    <path d="M352 408V566"/>
+    <path d="M352 482L431 532V566"/>
+    <path d="M222 566V502L260 482"/>
+    <path d="M246 516L278 499"/>
+  </g>
+
+  <!-- Wordmark. Keep text live for easy editing in code. Convert to outlines later if needed for production. -->
+  <text id="aroodi-wordmark"
+        x="512" y="760"
+        direction="rtl"
+        text-anchor="middle"
+        font-family="Tajawal, Cairo, IBM Plex Sans Arabic, Arial, sans-serif"
+        font-size="150"
+        font-weight="800"
+        fill="black"
+        letter-spacing="-4">عروضي</text>
+</svg>

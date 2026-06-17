@@ -292,6 +292,12 @@ test("services are organized into a filterable category catalog", () => {
   assert.match(app, /\["serviceCategory", "فئة الخدمة", "category"\]/);
   // Selecting a service loads its tailored defaults.
   assert.match(app, /function applyServiceTemplate\(/);
+  // نوع المشروع options adapt to the category (surveying lists land/plot types).
+  assert.match(app, /function getProjectTypeOptions\(/);
+  assert.match(app, /const projectTypesByCategory\s*=/);
+  ["أرض سكنية", "قطعة ضمن مخطط"].forEach((landType) =>
+    assert.ok(app.includes(landType), landType)
+  );
 });
 
 test("project tools include save status without JSON import export controls", () => {
@@ -546,6 +552,30 @@ test("the shell is branded as عروضي with the office name driven by the prof
   assert.match(html, /id="brandOfficeName"/);
   assert.match(html, /id="brandLogo"/);
   assert.match(app, /function renderShellBrand\(\)/);
+});
+
+test("login is product-branded as عروضي by wbstudio with the brand logo", () => {
+  assert.ok(fs.existsSync(path.join(root, "assets", "oroudy-logo.svg")), "missing oroudy-logo.svg");
+  assert.ok(fs.existsSync(path.join(root, "assets", "oroudy-icon.svg")), "missing oroudy-icon.svg");
+  // product brand block on the login card uses the oroudy logo (with عروضي wordmark) + tagline
+  assert.match(html, /class="app-brand"/);
+  assert.match(html, /class="app-brand-logo" src="assets\/oroudy-logo\.svg[^"]*" alt="عروضي"/);
+  assert.match(html, /by wbstudio/);
+  // favicon uses the icon-only mark
+  assert.match(html, /rel="icon" type="image\/svg\+xml" href="assets\/oroudy-icon\.svg/);
+  // login no longer shows the office LOGO.png as its mark
+  assert.doesNotMatch(html, /<img src="assets\/LOGO\.png" alt="">/);
+});
+
+test("first-visit animated walkthrough explains the app and can be replayed", () => {
+  assert.match(html, /id="introOverlay"/);
+  assert.match(html, /data-intro-slide/);
+  assert.match(html, /id="introReplayBtn"/);
+  assert.match(app, /const INTRO_SEEN_KEY = "oroudyIntroSeen"/);
+  assert.match(app, /function maybeShowIntro\(\)/);
+  assert.match(app, /function showIntro\(\)/);
+  // shown during boot, gated by the seen flag
+  assert.match(app, /maybeShowIntro\(\)/);
 });
 
 test("projects panel has a live search with result count", () => {
