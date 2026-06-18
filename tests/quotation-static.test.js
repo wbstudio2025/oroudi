@@ -426,6 +426,31 @@ test("pages grow instead of clipping, with an overflow warning", () => {
   assert.match(app, /flagPageOverflow\(\);\s*\n}/); // called at end of renderPreview
 });
 
+test("pages auto-fit to one A4 sheet so toggling the annex never adds a stray page", () => {
+  assert.match(app, /function fitPages\(\)/);
+  assert.match(app, /content\.style\.zoom = String\(Math\.max\(0\.5/);
+  assert.match(app, /available = rect\.width \* a4Ratio - paddingPx/);
+  // fitPages runs in renderPreview before the overflow check.
+  assert.match(app, /fitPages\(\);\s*\n\s*flagPageOverflow\(\);/);
+});
+
+test("the date picker has month and year navigation with a calendar affordance", () => {
+  assert.match(app, /data-calendar-nav="-12"/);
+  assert.match(app, /data-calendar-nav="12"/);
+  assert.match(app, /data-calendar-nav="-1"/);
+  assert.match(app, /class="calendar-nav-group"/);
+  assert.match(app, /class="date-input-icon"/);
+  assert.match(css, /\.calendar-nav-group\s*{/);
+  assert.match(css, /\.date-input-icon\s*{/);
+});
+
+test("financial page sub-headings for terms and payments match their section titles", () => {
+  assert.match(app, /<h3 class="scope-heading">\$\{escapeHtml\(getSectionTitle\("terms"\)\)\}<\/h3>/);
+  assert.match(app, /<h3 class="scope-heading">\$\{escapeHtml\(getSectionTitle\("payments"\)\)\}<\/h3>/);
+  // the old hardcoded payments heading is gone
+  assert.doesNotMatch(app, /جدول الدفعات \+ الضريبة 15%/);
+});
+
 test("projects panel has no backup UI or file-backup leftovers", () => {
   assert.doesNotMatch(html, /backupStatus|enableBackupBtn|backupNowBtn|restoreBackupBtn|النسخ الاحتياطي|نسخ احتياطي|استعادة من ملف/);
   assert.doesNotMatch(css, /\.backup-block|\.backup-status/);

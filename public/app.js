@@ -2046,9 +2046,15 @@ function renderDatePicker(field) {
   return `
     <div class="date-picker" data-date-picker="${field}" hidden>
       <div class="calendar-header">
-        <button type="button" data-calendar-nav="-1" data-date-field="${field}" aria-label="الشهر السابق">‹</button>
+        <div class="calendar-nav-group">
+          <button type="button" data-calendar-nav="-12" data-date-field="${field}" aria-label="السنة السابقة" title="السنة السابقة">«</button>
+          <button type="button" data-calendar-nav="-1" data-date-field="${field}" aria-label="الشهر السابق" title="الشهر السابق">‹</button>
+        </div>
         <strong>${escapeHtml(gregorianMonthFormatter.format(monthDate))}</strong>
-        <button type="button" data-calendar-nav="1" data-date-field="${field}" aria-label="الشهر التالي">›</button>
+        <div class="calendar-nav-group">
+          <button type="button" data-calendar-nav="1" data-date-field="${field}" aria-label="الشهر التالي" title="الشهر التالي">›</button>
+          <button type="button" data-calendar-nav="12" data-date-field="${field}" aria-label="السنة التالية" title="السنة التالية">»</button>
+        </div>
       </div>
       <div class="calendar-weekdays">
         ${weekdayLabels.map((day) => `<span>${day}</span>`).join("")}
@@ -2278,6 +2284,9 @@ function renderEditor() {
               <div class="field date-field">
                 <label for="${key}">${label}</label>
                 <div class="date-input-row">
+                  <span class="date-input-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24"><rect x="3" y="4.5" width="18" height="16" rx="2"/><path d="M3 9h18"/><path d="M8 2.5v4M16 2.5v4"/></svg>
+                  </span>
                   <input id="${key}" class="date-input" data-date-input data-date-field="${field}" type="text" value="${escapeHtml(quotationData[config.primaryKey] || "")}" placeholder="${escapeHtml(label)}" readonly aria-haspopup="dialog" aria-expanded="false">
                   <span class="inline-hijri-date">${escapeHtml(quotationData[config.secondaryKey] || "")}</span>
                 </div>
@@ -2983,10 +2992,11 @@ function renderFinancial(pageNumber, totalPages) {
         <em>${ph(quotationData.mainPriceWritten, "القيمة كتابةً")}</em>
         ${grandTotalMarkup}
       </div>
+      <h3 class="scope-heading">${escapeHtml(getSectionTitle("terms"))}</h3>
       <ul class="terms-list">
         ${terms.map((term) => `<li>${escapeHtml(term)}</li>`).join("")}
       </ul>
-      <h3 class="scope-heading">جدول الدفعات + الضريبة 15%</h3>
+      <h3 class="scope-heading">${escapeHtml(getSectionTitle("payments"))}</h3>
       <div class="payment-grid">
         ${quotationData.paymentSchedule.map((payment) => {
           const amount = getPaymentAmount(payment.percent);
@@ -3084,7 +3094,43 @@ function renderPreview() {
   preview.innerHTML = pages.join("");
   pageCount.textContent = `${pages.length} صفحات`;
   applyPreviewZoom();
+  fitPages();
   flagPageOverflow();
+}
+
+// Auto-fit: any page whose content would spill past one A4 sheet is scaled down (via zoom on
+// its content) so the document prints exactly one page per sheet — no stray overflow page when,
+// e.g., the optional annex is off and the closing block lands on the financial page. The scale
+// is derived from the A4 ratio, so it is independent of the on-screen preview zoom and carries
+// into print. A floor keeps text from becoming unreadably small for extreme content.
+function fitPages() {
+  const a4Ratio = 297 / 210;
+  const padRatio = 38 / 210; // 19mm top + 19mm bottom page padding, relative to the 210mm width
+  const pages = Array.from(preview.querySelectorAll(".page"));
+
+  // Reset any previous fit so natural heights are measured.
+  pages.forEach((page) => {
+    const content = page.querySelector(".page-content");
+    if (content) {
+      content.style.zoom = "";
+    }
+  });
+
+  pages.forEach((page) => {
+    const content = page.querySelector(".page-content");
+    const rect = page.getBoundingClientRect();
+    if (!content || !rect.width) {
+      return;
+    }
+
+    const paddingPx = rect.width * padRatio;
+    const available = rect.width * a4Ratio - paddingPx; // content height that fits one sheet
+    const current = rect.height - paddingPx; // current (possibly overflowing) content height
+
+    if (current > available + 1) {
+      content.style.zoom = String(Math.max(0.5, (available / current) * 0.99));
+    }
+  });
 }
 
 // A non-overflowing page keeps the A4 aspect ratio (297/210). Any page taller than

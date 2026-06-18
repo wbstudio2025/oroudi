@@ -1241,9 +1241,25 @@ textarea {
 
 .date-input-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
+}
+
+.date-input-icon {
+  display: inline-grid;
+  place-items: center;
+  color: var(--navy);
+  pointer-events: none;
+}
+
+.date-input-icon svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
 }
 
 .date-input {
@@ -1278,6 +1294,11 @@ textarea {
   justify-content: space-between;
   gap: 10px;
   margin-bottom: 10px;
+}
+
+.calendar-nav-group {
+  display: flex;
+  gap: 6px;
 }
 
 .calendar-header strong {
