@@ -107,6 +107,8 @@ const quotationData = {
   notes: "",
   showOptionalAnnex: true,
   showDeliverables: true,
+  // Editor-only: per-section title overrides (id → custom title) for the input panel.
+  sectionTitles: {},
   scopeGroups: [
     {
       number: "01",
@@ -886,6 +888,7 @@ const projectStatusOptions = [
 
 const fields = [
   {
+    id: "client",
     title: "بيانات العميل والعرض",
     items: [
       ["clientTitle", "اللقب", "clientTitle"],
@@ -899,6 +902,7 @@ const fields = [
     ]
   },
   {
+    id: "project",
     title: "بيانات المشروع",
     items: [
       ["serviceCategory", "فئة الخدمة", "category"],
@@ -2051,8 +2055,56 @@ function renderDatePicker(field) {
   `;
 }
 
+// Which editor sections are expanded. Empty by default → every section starts
+// collapsed, so the long input panel reads as a tidy numbered list. Cleared on every
+// full app render (renderApp) so switching/creating projects always opens collapsed,
+// while in-section edits (which call renderEditor only) keep the open section open.
+const expandedSections = new Set();
+
+function getSectionTitle(id, fallback) {
+  const overrides = (quotationData && quotationData.sectionTitles) || {};
+  const value = overrides[id];
+  return typeof value === "string" && value.trim() ? value : fallback;
+}
+
+// Wraps a section's inputs in a collapsible, numbered accordion card with an editable
+// title. `opts.extraClass` keeps section-specific styling hooks; `opts.removable` adds a
+// delete control for user-added custom sections.
+function sectionShell(id, number, defaultTitle, bodyHtml, opts = {}) {
+  const open = expandedSections.has(id);
+  const extraClass = opts.extraClass ? ` ${opts.extraClass}` : "";
+  const removeBtn = opts.removable
+    ? `<button type="button" class="section-remove" data-section-remove="${escapeHtml(id)}" aria-label="حذف القسم" title="حذف القسم">×</button>`
+    : "";
+
+  return `
+    <section class="form-group accordion-section${open ? " is-open" : ""}${extraClass}" data-section="${escapeHtml(id)}">
+      <div class="section-bar">
+        <button type="button" class="section-toggle" data-section-toggle="${escapeHtml(id)}" aria-expanded="${open}" title="طي أو فتح القسم">
+          <span class="section-num">${number}</span>
+          <span class="section-chevron" aria-hidden="true"></span>
+        </button>
+        <input class="section-title-input" type="text" value="${escapeHtml(getSectionTitle(id, defaultTitle))}" data-section-title="${escapeHtml(id)}" aria-label="عنوان القسم" placeholder="عنوان القسم">
+        ${removeBtn}
+      </div>
+      <div class="section-body"${open ? "" : " hidden"}>
+        ${bodyHtml}
+      </div>
+    </section>
+  `;
+}
+
+function toggleSection(id) {
+  if (expandedSections.has(id)) {
+    expandedSections.delete(id);
+  } else {
+    expandedSections.add(id);
+  }
+  renderEditor();
+}
+
 function renderEditor() {
-  const groups = fields
+  const builtinSections = fields
     .map((group) => {
       const inputs = group.items
         .map(([key, label, type = "text"]) => {
@@ -2214,14 +2266,8 @@ function renderEditor() {
         })
         .join("");
 
-      return `
-        <section class="form-group">
-          <h3>${group.title}</h3>
-          ${inputs}
-        </section>
-      `;
-    })
-    .join("");
+      return { id: group.id, title: group.title, body: inputs };
+    });
 
   const responsibleTitleSelectOptions = responsibleTitleOptions
     .map((option) => `<option value="${escapeHtml(option)}" ${option === quotationData.responsibleTitle ? "selected" : ""}>${escapeHtml(option)}</option>`)
@@ -2328,102 +2374,111 @@ function renderEditor() {
     })
     .join("");
 
-  editorForm.innerHTML = `
-    ${groups}
-    <section class="form-group scope-editor">
-      <h3>نطاق الأعمال</h3>
-      <p class="scope-hint">البنود المحددة تظهر في العرض. أزِل التحديد لإخفاء بند دون حذفه، أو أضِف بنوداً جديدة.</p>
-      ${scopeGroupsInputs}
-      <button type="button" class="reset-defaults-btn" data-reset-scope>إعادة تعبئة القائمة الافتراضية</button>
-    </section>
-    <section class="form-group scope-editor">
-      <div class="section-header-toggle">
-        <h3>المخرجات المتوقعة</h3>
-        <label class="toggle-label">
-          <input id="showDeliverables" data-key="showDeliverables" type="checkbox" ${quotationData.showDeliverables ? "checked" : ""}>
-          <span>إظهار في العرض</span>
-        </label>
-      </div>
-      ${deliverableInputs}
-      <div class="scope-add-row">
-        <input type="text" data-deliverable-add-input placeholder="إضافة مخرج جديد…" aria-label="إضافة مخرج جديد">
-        <button type="button" class="scope-add" data-deliverable-add>إضافة</button>
-      </div>
-      <button type="button" class="reset-defaults-btn" data-reset-deliverables>إعادة تعبئة القائمة الافتراضية</button>
-    </section>
-    <section class="form-group">
-      <h3>العرض المالي والملاحظات</h3>
-      <div class="field">
-        <label for="mainPriceNumber">قيمة العرض</label>
-        <div class="money-input-row">
-          <input id="mainPriceNumber" data-key="mainPriceNumber" data-money-key="mainPriceNumber" type="text" inputmode="decimal" placeholder="0" value="${escapeHtml(getMoneyInputValue(quotationData.mainPriceNumber))}">
-          <span>ريال</span>
-        </div>
-      </div>
-      <div class="field">
-        <label for="mainPriceWritten">قيمة العرض كتابة</label>
-        <input id="mainPriceWritten" data-key="mainPriceWritten" type="text" placeholder="قيمة العرض كتابة" value="${escapeHtml(quotationData.mainPriceWritten)}">
-      </div>
-      <div class="field">
-        <label for="notes">ملاحظات</label>
-        <textarea id="notes" data-key="notes" placeholder="ملاحظات">${escapeHtml(quotationData.notes)}</textarea>
-      </div>
-    </section>
-    <section class="form-group scope-editor">
-      <h3>الشروط المالية</h3>
-      ${financialTermInputs}
-      <div class="scope-add-row">
-        <input type="text" data-term-add-input placeholder="إضافة شرط جديد…" aria-label="إضافة شرط مالي جديد">
-        <button type="button" class="scope-add" data-term-add>إضافة</button>
-      </div>
-      <button type="button" class="reset-defaults-btn" data-reset-terms>إعادة تعبئة القائمة الافتراضية</button>
-    </section>
-    <section class="form-group scope-editor">
-      <h3>جدول الدفعات والضريبة</h3>
-      <p class="scope-hint">النسبة والوصف لكل دفعة، ويمكن إضافة دفعات أو حذفها. الضريبة 15% تُحسب تلقائياً.</p>
-      ${paymentScheduleInputs}
-      <div class="scope-add-row">
-        <button type="button" class="scope-add" data-payment-add>إضافة دفعة</button>
-      </div>
-      <button type="button" class="reset-defaults-btn" data-reset-payments>إعادة تعبئة القائمة الافتراضية</button>
-    </section>
-    <section class="form-group">
-      <h3>أسعار الخدمات الاختيارية</h3>
-      <div class="field toggle-field">
-        <label for="showOptionalAnnex">إظهار ملحق الخدمات الاختيارية</label>
-        <input id="showOptionalAnnex" data-key="showOptionalAnnex" type="checkbox" ${quotationData.showOptionalAnnex ? "checked" : ""}>
-      </div>
-      ${optionalServiceInputs}
-      <div class="scope-add-row">
-        <input type="text" data-service-add-name placeholder="إضافة خدمة جديدة…" aria-label="إضافة خدمة اختيارية جديدة">
-        <button type="button" class="scope-add" data-service-add>إضافة</button>
-      </div>
-      <button type="button" class="reset-defaults-btn" data-reset-services>إعادة تعبئة القائمة الافتراضية</button>
-      <div class="field">
-        <label for="optionalAnnexNote">ملاحظة ملحق الخدمات</label>
-        <textarea id="optionalAnnexNote" data-key="optionalAnnexNote" placeholder="ملاحظة تظهر أسفل جدول الخدمات الاختيارية">${escapeHtml(quotationData.optionalAnnexNote)}</textarea>
-      </div>
-    </section>
-    <section class="form-group">
-      <h3>المسؤول عن تجهيز العرض</h3>
-      <div class="field responsible-name-row">
-        <div>
-          <label for="responsibleTitle">الصفة</label>
-          <select id="responsibleTitle" data-key="responsibleTitle">
-            ${responsibleTitleSelectOptions}
-          </select>
-        </div>
-        <div>
-          <label for="responsibleName">الاسم</label>
-          <input id="responsibleName" data-key="responsibleName" type="text" placeholder="اسم المسؤول" value="${escapeHtml(quotationData.responsibleName)}">
-        </div>
-      </div>
-      <div class="field">
-        <label for="responsiblePhone">رقم الجوال</label>
-        <input id="responsiblePhone" data-key="responsiblePhone" type="tel" inputmode="tel" placeholder="05xxxxxxxx" value="${escapeHtml(quotationData.responsiblePhone)}">
-      </div>
-    </section>
+  const scopeBody = `
+    <p class="scope-hint">البنود المحددة تظهر في العرض. أزِل التحديد لإخفاء بند دون حذفه، أو أضِف بنوداً جديدة.</p>
+    ${scopeGroupsInputs}
+    <button type="button" class="reset-defaults-btn" data-reset-scope>إعادة تعبئة القائمة الافتراضية</button>
   `;
+
+  const deliverablesBody = `
+    <label class="toggle-label section-show-toggle">
+      <input id="showDeliverables" data-key="showDeliverables" type="checkbox" ${quotationData.showDeliverables ? "checked" : ""}>
+      <span>إظهار في العرض</span>
+    </label>
+    ${deliverableInputs}
+    <div class="scope-add-row">
+      <input type="text" data-deliverable-add-input placeholder="إضافة مخرج جديد…" aria-label="إضافة مخرج جديد">
+      <button type="button" class="scope-add" data-deliverable-add>إضافة</button>
+    </div>
+    <button type="button" class="reset-defaults-btn" data-reset-deliverables>إعادة تعبئة القائمة الافتراضية</button>
+  `;
+
+  const financialBody = `
+    <div class="field">
+      <label for="mainPriceNumber">قيمة العرض</label>
+      <div class="money-input-row">
+        <input id="mainPriceNumber" data-key="mainPriceNumber" data-money-key="mainPriceNumber" type="text" inputmode="decimal" placeholder="0" value="${escapeHtml(getMoneyInputValue(quotationData.mainPriceNumber))}">
+        <span>ريال</span>
+      </div>
+    </div>
+    <div class="field">
+      <label for="mainPriceWritten">قيمة العرض كتابة</label>
+      <input id="mainPriceWritten" data-key="mainPriceWritten" type="text" placeholder="قيمة العرض كتابة" value="${escapeHtml(quotationData.mainPriceWritten)}">
+    </div>
+    <div class="field">
+      <label for="notes">ملاحظات</label>
+      <textarea id="notes" data-key="notes" placeholder="ملاحظات">${escapeHtml(quotationData.notes)}</textarea>
+    </div>
+  `;
+
+  const termsBody = `
+    ${financialTermInputs}
+    <div class="scope-add-row">
+      <input type="text" data-term-add-input placeholder="إضافة شرط جديد…" aria-label="إضافة شرط مالي جديد">
+      <button type="button" class="scope-add" data-term-add>إضافة</button>
+    </div>
+    <button type="button" class="reset-defaults-btn" data-reset-terms>إعادة تعبئة القائمة الافتراضية</button>
+  `;
+
+  const paymentsBody = `
+    <p class="scope-hint">النسبة والوصف لكل دفعة، ويمكن إضافة دفعات أو حذفها. الضريبة 15% تُحسب تلقائياً.</p>
+    ${paymentScheduleInputs}
+    <div class="scope-add-row">
+      <button type="button" class="scope-add" data-payment-add>إضافة دفعة</button>
+    </div>
+    <button type="button" class="reset-defaults-btn" data-reset-payments>إعادة تعبئة القائمة الافتراضية</button>
+  `;
+
+  const optionalBody = `
+    <div class="field toggle-field">
+      <label for="showOptionalAnnex">إظهار ملحق الخدمات الاختيارية</label>
+      <input id="showOptionalAnnex" data-key="showOptionalAnnex" type="checkbox" ${quotationData.showOptionalAnnex ? "checked" : ""}>
+    </div>
+    ${optionalServiceInputs}
+    <div class="scope-add-row">
+      <input type="text" data-service-add-name placeholder="إضافة خدمة جديدة…" aria-label="إضافة خدمة اختيارية جديدة">
+      <button type="button" class="scope-add" data-service-add>إضافة</button>
+    </div>
+    <button type="button" class="reset-defaults-btn" data-reset-services>إعادة تعبئة القائمة الافتراضية</button>
+    <div class="field">
+      <label for="optionalAnnexNote">ملاحظة ملحق الخدمات</label>
+      <textarea id="optionalAnnexNote" data-key="optionalAnnexNote" placeholder="ملاحظة تظهر أسفل جدول الخدمات الاختيارية">${escapeHtml(quotationData.optionalAnnexNote)}</textarea>
+    </div>
+  `;
+
+  const responsibleBody = `
+    <div class="field responsible-name-row">
+      <div>
+        <label for="responsibleTitle">الصفة</label>
+        <select id="responsibleTitle" data-key="responsibleTitle">
+          ${responsibleTitleSelectOptions}
+        </select>
+      </div>
+      <div>
+        <label for="responsibleName">الاسم</label>
+        <input id="responsibleName" data-key="responsibleName" type="text" placeholder="اسم المسؤول" value="${escapeHtml(quotationData.responsibleName)}">
+      </div>
+    </div>
+    <div class="field">
+      <label for="responsiblePhone">رقم الجوال</label>
+      <input id="responsiblePhone" data-key="responsiblePhone" type="tel" inputmode="tel" placeholder="05xxxxxxxx" value="${escapeHtml(quotationData.responsiblePhone)}">
+    </div>
+  `;
+
+  const sections = [
+    ...builtinSections,
+    { id: "scope", title: "نطاق الأعمال", body: scopeBody, extraClass: "scope-editor" },
+    { id: "deliverables", title: "المخرجات المتوقعة", body: deliverablesBody, extraClass: "scope-editor" },
+    { id: "financial", title: "العرض المالي والملاحظات", body: financialBody },
+    { id: "terms", title: "الشروط المالية", body: termsBody, extraClass: "scope-editor" },
+    { id: "payments", title: "جدول الدفعات والضريبة", body: paymentsBody, extraClass: "scope-editor" },
+    { id: "optional", title: "أسعار الخدمات الاختيارية", body: optionalBody },
+    { id: "responsible", title: "المسؤول عن تجهيز العرض", body: responsibleBody }
+  ];
+
+  editorForm.innerHTML = sections
+    .map((section, index) => sectionShell(section.id, index + 1, section.title, section.body, { extraClass: section.extraClass }))
+    .join("");
 }
 
 let projectSearchQuery = "";
@@ -2913,6 +2968,9 @@ function applyPreviewZoom() {
 }
 
 function renderApp() {
+  // Full reloads (init, switch/create/duplicate project) start with every section
+  // collapsed; in-section edits call renderEditor directly and keep sections open.
+  expandedSections.clear();
   renderShellBrand();
   renderEditor();
   renderPreview();
@@ -2947,6 +3005,15 @@ function updateEditorValue(event) {
   const key = input.dataset.key;
   const serviceIndex = input.dataset.serviceIndex;
   const paymentIndex = input.dataset.paymentIndex;
+
+  // Editing a section title: store the override and save. No re-render, so the title
+  // input keeps focus while typing.
+  if (input.dataset.sectionTitle !== undefined) {
+    quotationData.sectionTitles = quotationData.sectionTitles || {};
+    quotationData.sectionTitles[input.dataset.sectionTitle] = input.value;
+    saveActiveProject();
+    return;
+  }
 
   // Free-typed custom service name: only the title changes; scope/deliverables are left as-is.
   if (input.dataset.customService !== undefined) {
@@ -3317,6 +3384,12 @@ if (projectSearchInput) {
 }
 
 editorForm.addEventListener("click", (event) => {
+  const sectionToggle = event.target.closest("[data-section-toggle]");
+  if (sectionToggle) {
+    toggleSection(sectionToggle.dataset.sectionToggle);
+    return;
+  }
+
   const scopeAdd = event.target.closest("[data-scope-add]");
   const scopeRemove = event.target.closest("[data-scope-remove]");
   const deliverableAdd = event.target.closest("[data-deliverable-add]");

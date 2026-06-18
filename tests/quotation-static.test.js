@@ -197,7 +197,7 @@ test("responsible person fields render at the end and drive the PDF contact butt
   assert.match(app, /const responsibleTitleOptions\s*=\s*\["المهندس", "المهندسة", "السيد", "السيدة"\]/);
   assert.match(app, /function getResponsibleDisplayName/);
   assert.match(app, /function getResponsibleContactUrl/);
-  assert.match(app, /<h3>المسؤول عن تجهيز العرض<\/h3>/);
+  assert.match(app, /title: "المسؤول عن تجهيز العرض"/);
   assert.match(app, /class="field responsible-name-row"/);
   assert.match(app, /id="responsiblePhone"/);
   assert.match(app, /class="acceptance-contact-btn"/);
@@ -205,6 +205,32 @@ test("responsible person fields render at the end and drive the PDF contact butt
   assert.match(app, /أنقر هنا للتواصل مع/);
   assert.match(css, /\.responsible-name-row\s*{/);
   assert.match(css, /\.acceptance-contact-btn\s*{/);
+});
+
+test("input panel sections are a numbered, collapsible accordion with editable titles", () => {
+  // Every section is wrapped by sectionShell with a sequential number and a collapse toggle.
+  assert.match(app, /function sectionShell\(id, number, defaultTitle, bodyHtml/);
+  assert.match(app, /class="form-group accordion-section/);
+  assert.match(app, /data-section-toggle=/);
+  assert.match(app, /class="section-num">\$\{number\}/);
+  assert.match(app, /sections\s*\n?\s*\.map\(\(section, index\) => sectionShell\(section\.id, index \+ 1/);
+
+  // Collapsed by default: the expanded set starts empty, and the body is hidden unless open.
+  assert.match(app, /const expandedSections = new Set\(\);/);
+  assert.match(app, /class="section-body"\$\{open \? "" : " hidden"\}/);
+  // Full app renders reset every section to collapsed.
+  assert.match(app, /function renderApp\(\)\s*{\s*[\s\S]*?expandedSections\.clear\(\);/);
+  assert.match(app, /function toggleSection\(id\)/);
+
+  // Titles are editable inputs, persisted per-quotation in sectionTitles.
+  assert.match(app, /sectionTitles:\s*\{\}/);
+  assert.match(app, /data-section-title=/);
+  assert.match(app, /quotationData\.sectionTitles\[input\.dataset\.sectionTitle\] = input\.value/);
+
+  // Accordion styling hooks exist.
+  assert.match(css, /\.accordion-section\s*{/);
+  assert.match(css, /\.section-num\s*{/);
+  assert.match(css, /\.section-title-input\s*{/);
 });
 
 test("optional service money fields show contextual Riyal units", () => {
