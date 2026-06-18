@@ -876,7 +876,7 @@ function applyServiceTemplate(value) {
   quotationData.deliverables = template.deliverables;
 }
 
-const clientTitleOptions = ["السيد", "السيدة"];
+const clientTitleOptions = ["السيد", "السيدة", "السادة"];
 const responsibleTitleOptions = ["المهندس", "المهندسة", "السيد", "السيدة"];
 const projectStatusOptions = [
   { value: "sent", label: "تم الإرسال" },
