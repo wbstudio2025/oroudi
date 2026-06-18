@@ -1,28 +1,36 @@
-# Dural Nafis Quotation Editor V1
+# عروضي (Oroudi)
 
-Static Arabic RTL quotation editor for preparing a polished A4 engineering consulting proposal.
+Static Arabic RTL quotation editor for preparing polished A4 engineering-consulting proposals for
+Saudi engineering offices. Plain HTML/CSS/JS — **no framework, no build step**.
 
-## Files
+## Structure
 
-- `index.html` - app shell, editor panel, preview container, action buttons, and projects panel.
-- `styles.css` - self-hosted Cairo `@font-face`, premium RTL layout, A4 page styling, print CSS.
-- `app.js` - `quotationData`, form/preview rendering, page-overflow warning, projects, Supabase
-  shared sync, and office settings.
-- `supabase-config.js` - public Supabase URL/anon-key config used by the hosted app.
-- `assets/` - `LOGO.png`, `Footer.png`, `Signature.png`, `app-icon.ico`, and `fonts/` (Cairo woff2).
-- Launcher: `server.ps1` (built-in-PowerShell local server), `launch.vbs` (opens the Edge app
-  window), `setup.bat` / `setup.ps1` (one-time shortcut install). See `INSTALL.md`.
+The deployable web app lives in **`public/`** (the only folder published to the web):
 
-## Install & run (Windows)
+- `public/index.html` — app shell, editor panel, preview container, action buttons, projects panel.
+- `public/styles.css` — self-hosted Cairo `@font-face`, premium RTL layout, A4 page + print CSS.
+- `public/app.js` — `quotationData`, form/preview rendering, page-overflow warning, projects,
+  Supabase auth + cloud sync, office brand settings, and the first-visit walkthrough.
+- `public/tafqit.js` — Arabic number-to-words for the totals.
+- `public/supabase-config.js` — public Supabase URL/anon-key config (committed **empty**; real keys
+  live only in the local copy and are uploaded at deploy).
+- `public/_headers` — security headers site-wide + long cache for `/assets/*`.
+- `public/assets/` — `oroudi-logo.svg`, `oroudi-icon.svg`, `LOGO.png`, `Footer.png`,
+  `Signature.png`, `app-icon.ico`, and `fonts/` (Cairo woff2).
 
-See **`INSTALL.md`**. In short: copy the folder to a permanent location, double-click
-`setup.bat`, then launch from the Desktop shortcut. It runs in a Microsoft Edge "app mode"
-window, served from `http://127.0.0.1:8137` by a tiny PowerShell server — no Node, Python, admin
-rights, or internet needed. Serving over localhost (not `file://`) keeps saved data under one
-stable origin.
+Everything else stays at the repo root and is **not** served:
 
-For quick development you can also serve the folder any other way (e.g. `python -m http.server`)
-and open it in a Chromium-based browser.
+- `supabase/*.sql` — database schema + signup/office setup.
+- `tests/` — static test suite (`node tests/quotation-static.test.js`).
+- `server.ps1`, `launch.vbs`, `setup.bat`, `setup.ps1`, `INSTALL.md` — local Windows run/install.
+- `wrangler.toml`, `package.json`, `DEPLOYMENT.md`, `.github/`, `.env.example`.
+
+## Run locally (Windows)
+
+See **[`INSTALL.md`](INSTALL.md)**. In short: double-click `setup.bat`, then launch from the Desktop
+shortcut. It runs in a Microsoft Edge "app mode" window served from `http://127.0.0.1:8137` by a tiny
+built-in-PowerShell server (`server.ps1`, which serves `public/`) — no Node, Python, admin rights, or
+internet needed. For development you can also serve `public/` any other way (e.g. `npm run serve`).
 
 ## Usage
 
@@ -31,43 +39,31 @@ Edit the fields in the left panel; the A4 preview updates immediately.
 - `طباعة / حفظ PDF` opens the browser print dialog — choose "Save as PDF" to export.
 - A red banner warns if a page's content exceeds one A4 sheet (instead of silently clipping it).
 - `إعادة تعبئة البيانات الافتراضية` restores the default quotation data.
-- Projects panel: save / duplicate / switch / delete quotations (stored in the browser).
+- Projects panel: save / duplicate / switch / delete quotations.
 
-## Shared online projects
+## Online accounts & sync
 
-The app can still run fully locally, but the hosted version can share one office project list through
-Supabase:
-
-1. Create a Supabase project.
-2. Run `supabase/schema.sql` in the Supabase SQL editor.
-3. In Supabase Auth, create one shared office email/password.
-4. Copy that auth user's UUID, paste it into `supabase/shared-office-setup.sql`, then run it.
-5. Fill `supabase-config.js` with the project URL and anon key from Supabase Project Settings > API.
-6. Host the static folder on Cloudflare Pages or Netlify.
-
-When a user logs in, cloud projects are loaded from Supabase. If the cloud has no projects yet, the
-current browser's local projects are uploaded once. After that, cloud data wins and localStorage is
-only a cache/fallback. Simultaneous edits use last-save-wins for this first shared-office version.
+The app runs fully local by default. With Supabase configured, it supports **self-serve signup with
+a private workspace per user** — anyone can create an account from the login card and gets their own
+isolated office and projects (Row-Level Security keeps them separate). When a user logs in, cloud
+projects load from Supabase; an empty cloud is seeded once from the browser's local projects, after
+which cloud data wins and localStorage is only a cache. Concurrent edits use last-save-wins.
 
 ## Deployment
 
-The app deploys as a static site (no build step). See **[`DEPLOYMENT.md`](DEPLOYMENT.md)** for the
-full guide to the three target platforms:
+Static site, no build step. See **[`DEPLOYMENT.md`](DEPLOYMENT.md)** for the full guide:
 
 - **GitHub** — source repository; `.github/workflows/ci.yml` runs the test suite on push/PR.
-- **Cloudflare Pages** — frontend hosting (Framework preset: None, no build command, output `/`);
-  `_headers` adds security headers and long-caches `/assets/*`.
+- **Cloudflare** (Workers + Assets via **Wrangler**) — `npx wrangler login` then
+  `npx wrangler deploy` publishes `public/`.
 - **Supabase** — database + auth + storage; run `supabase/schema.sql` then
-  `supabase/shared-office-setup.sql`, and supply the URL + anon key via `supabase-config.js`.
+  `supabase/self-serve-signup.sql`, and supply the URL + anon key via `public/supabase-config.js`.
 
 No credentials are committed; the hosted site runs local-only until Supabase keys are added.
 
 ## Notes
 
 - Plain HTML, CSS, and JavaScript. No framework or build step.
-- Supabase is optional for shared online projects; without `supabase-config.js` values, the app stays
-  local-only.
 - Cairo is bundled locally, so the premium look works fully offline.
-- The optional services annex can be shown or hidden from the editor.
 - Print styles hide the editor and print each quotation page as a separate A4 page.
 - Tests: `node tests/quotation-static.test.js`.

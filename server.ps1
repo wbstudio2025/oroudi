@@ -1,4 +1,4 @@
-# Dural Nafis Quotation Editor - minimal local web server.
+# عروضي (Oroudi) Quotation Editor - minimal local web server.
 #
 # Why this exists: the editor needs to run from a real http://localhost origin (not file://)
 # so that (a) saved quotations always live under one stable origin, and (b) the silent
@@ -16,7 +16,8 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$root = $PSScriptRoot
+# The web app lives in the public/ subfolder (the same files Cloudflare serves).
+$root = Join-Path $PSScriptRoot "public"
 
 $mimeTypes = @{
   ".html" = "text/html; charset=utf-8"

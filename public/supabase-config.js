@@ -1,4 +1,4 @@
-// عروضي (Oroudy) — public Supabase configuration for the hosted frontend.
+// عروضي (Oroudi) — public Supabase configuration for the hosted frontend.
 //
 // Leave these empty to run fully local-only (data stays in the browser).
 // Fill them in to enable shared online office projects (auth + cloud sync).
@@ -8,9 +8,9 @@
 //   SUPABASE_ANON_KEY → Supabase ▸ Project Settings ▸ API ▸ anon / public key
 // Row-Level Security (see supabase/schema.sql) is what actually protects data.
 //
-// Cloudflare Pages: edit these values and push, OR generate this file at build
-// time from environment variables — see DEPLOYMENT.md.
-window.OROUDY_SUPABASE_CONFIG = {
+// Deploy: the local copy holds the real keys and is uploaded as-is by
+// `npx wrangler deploy`. The committed copy stays empty — see DEPLOYMENT.md.
+window.OROUDI_SUPABASE_CONFIG = {
   SUPABASE_URL: "",
   SUPABASE_ANON_KEY: ""
 };

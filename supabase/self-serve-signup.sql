@@ -1,4 +1,4 @@
--- عروضي (Oroudy) — self-serve signup: every new auth user gets a PRIVATE office.
+-- عروضي (Oroudi) — self-serve signup: every new auth user gets a PRIVATE office.
 --
 -- Run this AFTER schema.sql, instead of shared-office-setup.sql.
 -- It installs a trigger so that when a user signs up (Authentication ▸ Email),

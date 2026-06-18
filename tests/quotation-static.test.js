@@ -3,11 +3,12 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const root = path.resolve(__dirname, "..");
-const app = fs.readFileSync(path.join(root, "app.js"), "utf8");
-const css = fs.readFileSync(path.join(root, "styles.css"), "utf8");
-const html = fs.readFileSync(path.join(root, "index.html"), "utf8");
-const config = fs.existsSync(path.join(root, "supabase-config.js"))
-  ? fs.readFileSync(path.join(root, "supabase-config.js"), "utf8")
+const publicRoot = path.join(root, "public"); // the deployable web app lives here
+const app = fs.readFileSync(path.join(publicRoot, "app.js"), "utf8");
+const css = fs.readFileSync(path.join(publicRoot, "styles.css"), "utf8");
+const html = fs.readFileSync(path.join(publicRoot, "index.html"), "utf8");
+const config = fs.existsSync(path.join(publicRoot, "supabase-config.js"))
+  ? fs.readFileSync(path.join(publicRoot, "supabase-config.js"), "utf8")
   : "";
 
 function test(name, fn) {
@@ -37,7 +38,7 @@ test("Supabase client and public config load before the app entrypoint", () => {
   assert.ok(supabaseCdnIndex > -1, "Supabase CDN client is not loaded");
   assert.ok(supabaseConfigIndex < appIndex, "config must load before app.js");
   assert.ok(supabaseCdnIndex < appIndex, "Supabase client must load before app.js");
-  assert.match(config, /window\.OROUDY_SUPABASE_CONFIG/);
+  assert.match(config, /window\.OROUDI_SUPABASE_CONFIG/);
   assert.match(config, /SUPABASE_URL/);
   assert.match(config, /SUPABASE_ANON_KEY/);
 });
@@ -102,9 +103,9 @@ test("print mode preserves the same A4 page geometry as preview", () => {
 });
 
 test("print image assets stay lightweight for fast PDF generation", () => {
-  const logoSize = fs.statSync(path.join(root, "assets", "LOGO.png")).size;
-  const footerSize = fs.statSync(path.join(root, "assets", "Footer.png")).size;
-  const signatureSize = fs.statSync(path.join(root, "assets", "Signature.png")).size;
+  const logoSize = fs.statSync(path.join(publicRoot, "assets", "LOGO.png")).size;
+  const footerSize = fs.statSync(path.join(publicRoot, "assets", "Footer.png")).size;
+  const signatureSize = fs.statSync(path.join(publicRoot, "assets", "Signature.png")).size;
 
   assert.ok(logoSize <= 70000, `LOGO.png is ${logoSize} bytes`);
   // Footer now carries a QR code (added with the address correction), so it is larger than
@@ -362,7 +363,7 @@ test("premium Cairo font is bundled and self-hosted for offline use", () => {
   assert.match(css, /font-family:\s*"Cairo",\s*"Tajawal"/);
 
   ["cairo-arabic.woff2", "cairo-latin-ext.woff2", "cairo-latin.woff2"].forEach((file) => {
-    const fontPath = path.join(root, "assets", "fonts", file);
+    const fontPath = path.join(publicRoot, "assets", "fonts", file);
     assert.ok(fs.existsSync(fontPath), `missing ${file}`);
     const header = fs.readFileSync(fontPath).subarray(0, 4).toString("latin1");
     assert.equal(header, "wOF2", `${file} is not a valid woff2`);
@@ -373,7 +374,7 @@ test("Windows install scaffolding launches an Edge app window from a local serve
   ["server.ps1", "launch.vbs", "setup.bat", "setup.ps1", "INSTALL.md"].forEach((file) => {
     assert.ok(fs.existsSync(path.join(root, file)), `missing ${file}`);
   });
-  assert.ok(fs.existsSync(path.join(root, "assets", "app-icon.ico")), "missing app-icon.ico");
+  assert.ok(fs.existsSync(path.join(publicRoot, "assets", "app-icon.ico")), "missing app-icon.ico");
   assert.match(html, /rel="icon"/);
 
   const server = fs.readFileSync(path.join(root, "server.ps1"), "utf8");
@@ -448,7 +449,7 @@ test("last page drops the footer and ends with the signature", () => {
 
 /* --- Productization (عروضي): brandable office identity + market features --- */
 
-const tafqit = require(path.join(root, "tafqit.js"));
+const tafqit = require(path.join(publicRoot, "tafqit.js"));
 
 test("tafqit converts figures into formal Arabic words", () => {
   assert.equal(tafqit.tafqitInteger(1), "واحد");
@@ -476,7 +477,7 @@ test("written amount is auto-derived from the figure with manual override", () =
 });
 
 test("office identity lives in a persisted brand profile, not in each quotation", () => {
-  assert.match(app, /const BRAND_PROFILE_STORAGE_KEY = "oroudyBrandProfile"/);
+  assert.match(app, /const BRAND_PROFILE_STORAGE_KEY = "oroudiBrandProfile"/);
   assert.match(app, /const defaultBrandProfile = {/);
   assert.match(app, /function loadBrandProfile\(\)/);
   assert.match(app, /function persistBrandProfile\(\)/);
@@ -555,14 +556,14 @@ test("the shell is branded as عروضي with the office name driven by the prof
 });
 
 test("login is product-branded as عروضي by wbstudio with the brand logo", () => {
-  assert.ok(fs.existsSync(path.join(root, "assets", "oroudy-logo.svg")), "missing oroudy-logo.svg");
-  assert.ok(fs.existsSync(path.join(root, "assets", "oroudy-icon.svg")), "missing oroudy-icon.svg");
-  // product brand block on the login card uses the oroudy logo (with عروضي wordmark) + tagline
+  assert.ok(fs.existsSync(path.join(publicRoot, "assets", "oroudi-logo.svg")), "missing oroudi-logo.svg");
+  assert.ok(fs.existsSync(path.join(publicRoot, "assets", "oroudi-icon.svg")), "missing oroudi-icon.svg");
+  // product brand block on the login card uses the oroudi logo (with عروضي wordmark) + tagline
   assert.match(html, /class="app-brand"/);
-  assert.match(html, /class="app-brand-logo" src="assets\/oroudy-logo\.svg[^"]*" alt="عروضي"/);
+  assert.match(html, /class="app-brand-logo" src="assets\/oroudi-logo\.svg[^"]*" alt="عروضي"/);
   assert.match(html, /by wbstudio/);
   // favicon uses the icon-only mark
-  assert.match(html, /rel="icon" type="image\/svg\+xml" href="assets\/oroudy-icon\.svg/);
+  assert.match(html, /rel="icon" type="image\/svg\+xml" href="assets\/oroudi-icon\.svg/);
   // login no longer shows the office LOGO.png as its mark
   assert.doesNotMatch(html, /<img src="assets\/LOGO\.png" alt="">/);
 });
@@ -571,7 +572,7 @@ test("first-visit animated walkthrough explains the app and can be replayed", ()
   assert.match(html, /id="introOverlay"/);
   assert.match(html, /data-intro-slide/);
   assert.match(html, /id="introReplayBtn"/);
-  assert.match(app, /const INTRO_SEEN_KEY = "oroudyIntroSeen"/);
+  assert.match(app, /const INTRO_SEEN_KEY = "oroudiIntroSeen"/);
   assert.match(app, /function maybeShowIntro\(\)/);
   assert.match(app, /function showIntro\(\)/);
   // shown during boot, gated by the seen flag
@@ -623,9 +624,9 @@ test("financial terms and the annex note are editable", () => {
   assert.match(css, /\.term-edit-row\s*{/);
 });
 
-/* --- Deployment base: GitHub + Cloudflare Pages + Supabase --- */
+/* --- Deployment base: GitHub + Cloudflare (Workers/Wrangler) + Supabase --- */
 
-test("deployment scaffolding is present for GitHub, Cloudflare Pages, and Supabase", () => {
+test("deployment scaffolding is present for GitHub, Cloudflare, and Supabase", () => {
   const read = (rel) => fs.readFileSync(path.join(root, rel), "utf8");
   const exists = (rel) => fs.existsSync(path.join(root, rel));
 
@@ -642,8 +643,8 @@ test("deployment scaffolding is present for GitHub, Cloudflare Pages, and Supaba
   assert.match(read(".gitattributes"), /eol=crlf/);
   assert.match(read(".gitignore"), /^\.env$/m);
 
-  // Cloudflare Pages headers: security site-wide, hard cache for self-hosted assets.
-  const headers = read("_headers");
+  // Cloudflare static-asset headers: security site-wide, hard cache for self-hosted assets.
+  const headers = fs.readFileSync(path.join(publicRoot, "_headers"), "utf8");
   assert.match(headers, /X-Content-Type-Options: nosniff/);
   assert.match(headers, /\/assets\/\*/);
   assert.match(headers, /immutable/);
@@ -652,7 +653,7 @@ test("deployment scaffolding is present for GitHub, Cloudflare Pages, and Supaba
   assert.ok(exists("supabase/schema.sql"), "missing supabase/schema.sql");
   assert.ok(exists("supabase/shared-office-setup.sql"), "missing shared-office-setup.sql");
   const deploy = read("DEPLOYMENT.md");
-  ["GitHub", "Cloudflare Pages", "Supabase", "schema.sql"].forEach((token) =>
+  ["GitHub", "Cloudflare", "Wrangler", "Supabase", "schema.sql"].forEach((token) =>
     assert.ok(deploy.includes(token), `DEPLOYMENT.md should mention ${token}`)
   );
 

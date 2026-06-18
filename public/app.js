@@ -1,4 +1,4 @@
-const BRAND_PROFILE_STORAGE_KEY = "oroudyBrandProfile";
+const BRAND_PROFILE_STORAGE_KEY = "oroudiBrandProfile";
 
 /* The brand profile is the office's identity and templates: everything that belongs to
    the office rather than to a single quotation. The app ships with the Dural Nafis
@@ -1452,7 +1452,7 @@ function setAuthMode(mode) {
 }
 
 function createSupabaseClient() {
-  const config = window.OROUDY_SUPABASE_CONFIG || {};
+  const config = window.OROUDI_SUPABASE_CONFIG || {};
   const url = String(config.SUPABASE_URL || "").trim();
   const anonKey = String(config.SUPABASE_ANON_KEY || "").trim();
 
@@ -3794,7 +3794,7 @@ if (logoutBtn) {
 
 // First-visit walkthrough: an in-app animated intro (not a recorded GIF) that auto-plays
 // through the steps, can be skipped, and is reopened anytime via "كيف يعمل التطبيق؟".
-const INTRO_SEEN_KEY = "oroudyIntroSeen";
+const INTRO_SEEN_KEY = "oroudiIntroSeen";
 const introOverlay = document.querySelector("#introOverlay");
 const introStage = document.querySelector("#introStage");
 const introDots = document.querySelector("#introDots");

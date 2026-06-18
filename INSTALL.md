@@ -1,4 +1,4 @@
-# التثبيت / Installation — محرر عروض الدر النفيس
+# التثبيت / Installation — عروضي (Oroudi)
 
 برنامج محلي بالكامل يعمل دون إنترنت. لا يحتاج إلى تنصيب Node أو Python أو أي برنامج إضافي —
 فقط نظام Windows ومتصفح Microsoft Edge (الموجود أساساً في كل أجهزة Windows).
@@ -8,14 +8,14 @@ Windows PC) — no Node, no Python, no admin rights.
 
 ## التثبيت على جهاز السكرتير / Install on the secretary's laptop
 
-1. **انسخ هذا المجلد كاملاً** إلى مكان دائم لا يتغيّر، مثل `C:\DuralNafis\QuotationEditor`.
+1. **انسخ هذا المجلد كاملاً** إلى مكان دائم لا يتغيّر، مثل `C:\Oroudi\QuotationEditor`.
    لا تضعه في "التنزيلات" أو مجلد مؤقت (مكان الملف يحدّد مكان حفظ بياناتك).
-   _Copy this whole folder to a permanent location (e.g. `C:\DuralNafis\QuotationEditor`).
+   _Copy this whole folder to a permanent location (e.g. `C:\Oroudi\QuotationEditor`).
    Do not run it from Downloads or a temp folder — the location anchors where data lives._
 2. انقر مرتين على **`setup.bat`**. سيُنشئ اختصاراً على سطح المكتب وفي قائمة ابدأ.
    _Double-click **`setup.bat`** — it creates a Desktop and Start Menu shortcut._
-3. افتح التطبيق من اختصار **«محرر عروض الدر النفيس»**. يفتح في نافذة خاصة تشبه التطبيق المُثبّت.
-   _Open it from the **"محرر عروض الدر النفيس"** shortcut — it opens in its own app-style window._
+3. افتح التطبيق من اختصار **«عروضي»**. يفتح في نافذة خاصة تشبه التطبيق المُثبّت.
+   _Open it from the **"عروضي"** shortcut — it opens in its own app-style window._
 4. (اختياري) لتثبيته على شريط المهام: انقر بزر الفأرة الأيمن على أيقونة النافذة ثم «تثبيت على شريط المهام».
    _Optional: right-click the window's taskbar icon > Pin to taskbar._
 
@@ -47,8 +47,8 @@ folder — to keep it across devices, use Supabase sync (see [`DEPLOYMENT.md`](D
 
 ## إزالة التثبيت / Uninstall
 
-احذف الاختصارين (سطح المكتب وقائمة ابدأ > Dural Nafis) ثم احذف المجلد. لا توجد تغييرات في النظام.
-_Delete the two shortcuts (Desktop and Start Menu > Dural Nafis) and the folder. Nothing else is
+احذف الاختصارين (سطح المكتب وقائمة ابدأ > Oroudi) ثم احذف المجلد. لا توجد تغييرات في النظام.
+_Delete the two shortcuts (Desktop and Start Menu > Oroudi) and the folder. Nothing else is
 changed on the system._
 
 ## حل المشكلات / Troubleshooting

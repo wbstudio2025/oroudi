@@ -1,4 +1,4 @@
--- عروضي (Oroudy) — Phase 3 schema for Supabase (Postgres + RLS).
+-- عروضي (Oroudi) — Phase 3 schema for Supabase (Postgres + RLS).
 -- Apply with the Supabase SQL editor or `supabase db push` once the project exists.
 --
 -- Tenancy: office (tenant) → members (auth users) → projects (quotations).

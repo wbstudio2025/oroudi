@@ -1,4 +1,4 @@
-' Dural Nafis Quotation Editor - launcher.
+' عروضي (Oroudi) Quotation Editor - launcher.
 ' Starts the local PowerShell server (hidden, only if it isn't already running) and opens
 ' the editor in a clean Microsoft Edge "app mode" window. Double-click target for the
 ' desktop / Start Menu shortcut created by setup.bat.
@@ -17,7 +17,7 @@ serverPs1 = scriptDir & "\server.ps1"
 edge = FindEdge()
 If edge = "" Then
   MsgBox "تعذّر العثور على متصفح Microsoft Edge على هذا الجهاز." & vbCrLf & _
-         "Microsoft Edge is required but was not found.", vbCritical, "Dural Nafis Quotation Editor"
+         "Microsoft Edge is required but was not found.", vbCritical, "عروضي (Oroudi)"
   WScript.Quit 1
 End If
 

@@ -119,16 +119,16 @@ Dural Nafis Quotation Editor V1 — hardening + making it installable for a secr
 
 ## Project
 
-عروضي (Oroudy) — productizing the quotation editor as a Saudi SaaS for architecture/engineering
+عروضي (Oroudi) — productizing the quotation editor as a Saudi SaaS for architecture/engineering
 offices. Owner decisions: hosted web app (SaaS), quotations-only fully-brandable MVP, cross-device
 sync required (Supabase planned), Arabic UI with optionally bilingual documents, product name
-**عروضي / Oroudy** (oroudy.com / oroudy.sa to be registered).
+**عروضي / Oroudi** (oroudi.com / oroudi.sa to be registered).
 
 ## Completed Work (Phases 1–2 of the productization plan, front-end only)
 
 - **Brand profile extraction:** company identity (name, logo, signature/stamp, footer, closing
   text) moved out of `quotationData` into a persisted `brandProfile`
-  (localStorage `oroudyBrandProfile`); saved projects shed legacy embedded identity on migration.
+  (localStorage `oroudiBrandProfile`); saved projects shed legacy embedded identity on migration.
   Dural Nafis is now just the seed profile.
 - **Office settings dialog (إعدادات المكتب):** edit office name, upload logo/stamp/footer
   image/QR (downscaled to data URLs), closing text, Saudi registration fields (CR, VAT,
@@ -147,7 +147,7 @@ sync required (Supabase planned), Arabic UI with optionally bilingual documents,
 - **Editable lists:** deliverables became `{ name, enabled }` checklists with add/remove
   (migration from legacy strings); optional services gained add/remove.
 - **Shell rebrand:** title/header now عروضي; office name + logo in the header come from the brand
-  profile. Backups now carry the brand profile (`app: "oroudy-quotation-editor"`, version 2) and
+  profile. Backups now carry the brand profile (`app: "oroudi-quotation-editor"`, version 2) and
   restores apply it.
 
 ## Verification Performed

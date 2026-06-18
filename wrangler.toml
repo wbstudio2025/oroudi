@@ -1,6 +1,6 @@
-name = "oroudy"
+name = "oroudi"
 compatibility_date = "2025-06-18"
 
 [assets]
-directory = "."
+directory = "public"
 not_found_handling = "single-page-application"

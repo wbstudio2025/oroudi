@@ -1,4 +1,4 @@
-# Dural Nafis Quotation Editor - one-time setup.
+# عروضي (Oroudi) Quotation Editor - one-time setup.
 # Creates Desktop and Start Menu shortcuts that launch the editor in an Edge app window.
 # Run via setup.bat (double-click). No admin rights required.
 
@@ -6,9 +6,9 @@ $ErrorActionPreference = "Stop"
 $appDir = $PSScriptRoot
 $vbs = Join-Path $appDir "launch.vbs"
 $icon = Join-Path $appDir "assets\app-icon.ico"
-$shortcutName = "محرر عروض الدر النفيس.lnk"
+$shortcutName = "عروضي.lnk"
 
-foreach ($required in @($vbs, (Join-Path $appDir "server.ps1"), (Join-Path $appDir "index.html"))) {
+foreach ($required in @($vbs, (Join-Path $appDir "server.ps1"), (Join-Path $appDir "public\index.html"))) {
   if (-not (Test-Path -LiteralPath $required)) {
     Write-Host "خطأ: ملف مفقود / Missing file: $required" -ForegroundColor Red
     exit 1
@@ -27,14 +27,14 @@ function New-AppShortcut([string]$folder) {
   $lnk.TargetPath = $wscript
   $lnk.Arguments = '"' + $vbs + '"'
   $lnk.WorkingDirectory = $appDir
-  $lnk.Description = "محرر عروض الأسعار - شركة الدر النفيس للاستشارات الهندسية"
+  $lnk.Description = "عروضي — محرر عروض الأسعار الهندسية"
   if (Test-Path -LiteralPath $icon) { $lnk.IconLocation = $icon }
   $lnk.Save()
   return $path
 }
 
 $desktop = [Environment]::GetFolderPath("Desktop")
-$startMenu = Join-Path ([Environment]::GetFolderPath("Programs")) "Dural Nafis"
+$startMenu = Join-Path ([Environment]::GetFolderPath("Programs")) "Oroudi"
 
 $created = @()
 $created += New-AppShortcut $desktop

@@ -1,25 +1,28 @@
-# Deployment guide — عروضي (Oroudy)
+# Deployment guide — عروضي (Oroudi)
 
-This app is a **static site with no build step** (plain HTML/CSS/JS). It runs three ways:
+This app is a **static site with no build step** (plain HTML/CSS/JS). The deployable web app
+lives entirely in the **`public/`** folder — that is the only thing published to the web. Everything
+else in the repo (`supabase/*.sql`, `tests/`, the local-dev scripts, and these docs) stays private
+and is never served.
 
-1. **Local Windows install** — the existing `setup.bat` / Edge app-mode flow (see [`INSTALL.md`](INSTALL.md)).
-2. **Hosted, local-only** — deploy the static files; without Supabase keys it stays per-browser.
+It runs three ways:
+
+1. **Local Windows install** — the existing `setup.bat` / Edge app-mode flow (see [`INSTALL.md`](INSTALL.md)); `server.ps1` serves `public/`.
+2. **Hosted, local-only** — publish `public/`; without Supabase keys it stays per-browser.
 3. **Hosted + shared office** — add Supabase credentials to enable login, cloud sync, and storage.
 
-The base for all three is already in this repo. The steps below set up the cloud platforms when
-you are ready. **No credentials are committed** — fill them in at the marked steps.
+**No credentials are committed.** The committed `public/supabase-config.js` is empty; the real
+(public, anon) keys live only in your local copy of that file and are uploaded at deploy time.
 
 Target platforms:
 
 - **GitHub** → source repository (+ CI runs the test suite on every push/PR).
-- **Cloudflare Pages** → static frontend hosting (auto-deploys from GitHub).
-- **Supabase** → Postgres database + auth + storage for the shared office workspace.
+- **Cloudflare** (Workers + Assets, deployed with **Wrangler**) → static frontend hosting.
+- **Supabase** → Postgres database + auth + storage for the office workspace.
 
 ---
 
 ## 1. GitHub — source repository
-
-The repo is ready to push. There is no remote yet.
 
 ```powershell
 # from the project folder
@@ -31,55 +34,63 @@ What is already prepared:
 
 - `.gitignore` keeps secrets (`.env`), local PDF artifacts, and tool state out of git.
 - `.gitattributes` normalizes line endings (LF in the repo; Windows `.ps1`/`.bat`/`.vbs`/`.cmd`
-  stay CRLF) so the repo builds cleanly on Linux/Cloudflare.
+  stay CRLF) so the repo stays clean cross-platform.
 - `.github/workflows/ci.yml` runs `npm test` (the static test suite) on every push to `main` and
   on pull requests. No dependencies are installed — the tests use only Node built-ins.
 
-> The local-install files (`server.ps1`, `launch.vbs`, `setup.bat`, `setup.ps1`) are also served by
-> Cloudflare as plain text. That is harmless (the repo is the source of truth), and it keeps a
-> single folder usable both locally and on the web.
-
 ---
 
-## 2. Cloudflare Pages — frontend hosting
+## 2. Cloudflare — frontend hosting (Workers + Assets via Wrangler)
 
-Because there is **no build step**, Cloudflare just uploads the repo root as-is.
+Cloudflare now serves static sites as **Workers with static Assets**, configured by
+[`wrangler.toml`](wrangler.toml):
 
-### Create the project
+```toml
+name = "oroudi"
+compatibility_date = "2025-06-18"
 
-1. Cloudflare dashboard → **Workers & Pages** → **Create** → **Pages** → **Connect to Git**.
-2. Pick the GitHub repo from step 1.
-3. Build settings:
-   - **Framework preset:** `None`
-   - **Build command:** _(leave empty)_
-   - **Build output directory:** `/`  (the repo root)
-   - **Root directory:** `/`
-4. Deploy. Every push to `main` redeploys automatically; pull requests get preview URLs.
+[assets]
+directory = "public"
+not_found_handling = "single-page-application"
+```
 
-`_headers` (already in the repo) applies security headers site-wide and long-caches `/assets/*`
-(fonts, logo, footer, icons).
+`directory = "public"` is what keeps the deploy clean — only the app ships, not the SQL/tests/docs.
 
-### Supabase config on Cloudflare
+### Deploy with the Wrangler CLI (recommended)
 
-Choose **one** of these — the app reads `window.OROUDY_SUPABASE_CONFIG` from `supabase-config.js`:
+This uploads your **local** files directly, so your local `public/supabase-config.js` (with the
+real anon keys) ships as-is — no build step, no Hello-World template trap.
 
-- **Simple (recommended to start):** edit `supabase-config.js`, paste the Project URL + anon key,
-  commit, and push. Both values are public/anon and safe to commit.
-- **Build-time injection (no keys in git):** keep `supabase-config.js` empty in git, set a build
-  command that writes it from environment variables, and add `SUPABASE_URL` / `SUPABASE_ANON_KEY`
-  in **Pages → Settings → Environment variables**:
+```powershell
+# from the project folder
+npx wrangler login      # one time — opens a browser to authorize
+npx wrangler deploy     # publishes public/ to https://oroudi.<subdomain>.workers.dev
+```
 
-  ```
-  Build command:
-  node -e "require('fs').writeFileSync('supabase-config.js','window.OROUDY_SUPABASE_CONFIG={SUPABASE_URL:'+JSON.stringify(process.env.SUPABASE_URL||'')+',SUPABASE_ANON_KEY:'+JSON.stringify(process.env.SUPABASE_ANON_KEY||'')+'};')"
-  ```
+After the first deploy, enable the public URL under the Worker's **Settings → Domains & Routes**
+(`workers.dev` route) if it is not already on. Re-run `npx wrangler deploy` to publish updates.
 
-Until either is done, the hosted site works **local-only** (the header shows
+`public/_headers` applies security headers site-wide and long-caches `/assets/*` (fonts, logos).
+
+### Alternative: GitHub → Cloudflare auto-build
+
+If you prefer auto-deploy on every push, connect the repo in the dashboard and set a build command
+that injects the keys from environment variables (so they stay out of git). The app reads
+`window.OROUDI_SUPABASE_CONFIG` from `public/supabase-config.js`:
+
+```
+Build command:
+node -e "require('fs').writeFileSync('public/supabase-config.js','window.OROUDI_SUPABASE_CONFIG={SUPABASE_URL:'+JSON.stringify(process.env.SUPABASE_URL||'')+',SUPABASE_ANON_KEY:'+JSON.stringify(process.env.SUPABASE_ANON_KEY||'')+'};')"
+```
+
+Add `SUPABASE_URL` / `SUPABASE_ANON_KEY` under the project's **Environment variables**.
+
+Until keys are present, the hosted site works **local-only** (the header shows
 "محلي فقط - أضف إعدادات Supabase للنشر") — no errors.
 
 ### Custom domain
 
-Pages → **Custom domains** → add your domain and follow the DNS instructions.
+The Worker's **Domains & Routes** → add your domain and follow the DNS instructions.
 
 ---
 
@@ -104,9 +115,10 @@ keeps them from seeing anyone else's). Setup:
 4. **Authentication → Sign In / Providers → Email:** enable the Email provider and **"Allow new
    users to sign up"**. To start, turn **"Confirm email" OFF** so signup logs the user straight in.
    (You can enable confirmation later — when you do, also set **Site URL** and **Redirect URLs**
-   under **Authentication → URL Configuration**, e.g. your deployed origin and
-   `http://localhost:8000` for local testing.)
-5. Put the Project URL + anon key into the frontend (see *Supabase config on Cloudflare* above).
+   under **Authentication → URL Configuration**, e.g. your deployed `workers.dev` origin and
+   `http://127.0.0.1:8137` for local testing.)
+5. Put the Project URL + anon key into your local `public/supabase-config.js` (kept out of git;
+   uploaded by `wrangler deploy`), or use the build-injection path above.
 
 > **Single shared office instead?** If you'd rather have one office whose projects everyone shares
 > (the older model), skip step 3 and instead add one user under **Authentication → Users**, then run
@@ -125,13 +137,13 @@ and localStorage is only a cache/fallback. Concurrent edits use last-save-wins.
 - **Tests:** `npm test` (or `node tests/quotation-static.test.js`) — runs in CI on every push.
 - **Local-only path:** open the deployed URL; the header should read "محلي فقط…" and editing/printing
   must work with no console errors.
-- **Shared path:** after Supabase is wired, the login overlay appears; sign in with the shared
-  office account; saved projects sync across browsers.
+- **Shared path:** after Supabase is wired, the login overlay appears; sign up / sign in, then saved
+  projects sync across browsers.
 
 ## Checklist
 
 - [ ] `git push` to GitHub; CI green.
-- [ ] Cloudflare Pages project connected (Framework: None, no build command, output `/`).
-- [ ] Supabase project created; `schema.sql` + `shared-office-setup.sql` run.
-- [ ] Supabase URL + anon key supplied to the frontend (commit or env injection).
+- [ ] `npx wrangler login` then `npx wrangler deploy` (serves `public/`); `workers.dev` URL enabled.
+- [ ] Supabase project created; `schema.sql` + `self-serve-signup.sql` run.
+- [ ] Supabase URL + anon key in local `public/supabase-config.js` (or env injection).
 - [ ] Custom domain attached (optional).
