@@ -109,6 +109,9 @@ const quotationData = {
   showDeliverables: true,
   // Editor-only: per-section title overrides (id → custom title) for the input panel.
   sectionTitles: {},
+  // User-added sections that print as their own page in the quotation:
+  // [{ id: "custom:…", title, items: ["line", …] }].
+  customSections: [],
   scopeGroups: [
     {
       number: "01",
@@ -2083,9 +2086,43 @@ const SECTION_DEFAULT_TITLES = {
 };
 
 function getSectionTitle(id) {
+  if (typeof id === "string" && id.startsWith("custom:")) {
+    const section = getCustomSection(id);
+    return section && typeof section.title === "string" && section.title.trim() ? section.title : "قسم جديد";
+  }
   const overrides = (quotationData && quotationData.sectionTitles) || {};
   const value = overrides[id];
   return typeof value === "string" && value.trim() ? value : (SECTION_DEFAULT_TITLES[id] || "");
+}
+
+function getCustomSection(id) {
+  return (quotationData.customSections || []).find((section) => section.id === id);
+}
+
+function customSectionHasContent(section) {
+  return (section.items || []).some((text) => String(text).trim());
+}
+
+// Editor body for a custom section: editable free-text lines (each prints as a list item)
+// plus an add-line row. Mirrors the other list sections' add/remove pattern.
+function customSectionEditorBody(section) {
+  const items = (section.items || [])
+    .map((text, index) => `
+      <div class="term-edit-row">
+        <input data-custom-item="${escapeHtml(section.id)}" data-custom-index="${index}" type="text" value="${escapeHtml(text)}" placeholder="نص يظهر في العرض…" aria-label="بند">
+        <button type="button" class="scope-remove" data-custom-item-remove="${escapeHtml(section.id)}" data-custom-index="${index}" aria-label="إزالة البند" title="إزالة البند">×</button>
+      </div>
+    `)
+    .join("");
+
+  return `
+    <p class="scope-hint">يظهر هذا القسم كصفحة في العرض بعنوانه وبنوده.</p>
+    ${items}
+    <div class="scope-add-row">
+      <input type="text" data-custom-item-add="${escapeHtml(section.id)}" placeholder="إضافة بند جديد…" aria-label="إضافة بند جديد">
+      <button type="button" class="scope-add" data-custom-item-add-btn="${escapeHtml(section.id)}">إضافة</button>
+    </div>
+  `;
 }
 
 // Wraps a section's inputs in a collapsible, numbered accordion card. The title shows as
@@ -2145,6 +2182,70 @@ function beginSectionTitleEdit(id) {
       input.setSelectionRange(input.value.length, input.value.length);
     }
   }
+}
+
+function addCustomSection() {
+  quotationData.customSections = quotationData.customSections || [];
+  const id = `custom:${createProjectId()}`;
+  quotationData.customSections.push({ id, title: "قسم جديد", items: [] });
+  expandedSections.add(id); // open the new section so its fields are visible
+  editingSectionTitle = id; // start in title-edit mode so the user names it first
+  renderEditor();
+  const input = editorForm.querySelector(`[data-section-title="${id}"]`);
+  if (input) {
+    input.focus();
+    input.select();
+  }
+  renderPreview();
+  saveActiveProject();
+}
+
+function removeCustomSection(id) {
+  if (!Array.isArray(quotationData.customSections)) {
+    return;
+  }
+  quotationData.customSections = quotationData.customSections.filter((section) => section.id !== id);
+  expandedSections.delete(id);
+  if (editingSectionTitle === id) {
+    editingSectionTitle = null;
+  }
+  renderEditor();
+  renderPreview();
+  saveActiveProject();
+}
+
+function addCustomItem(id) {
+  const section = getCustomSection(id);
+  const input = editorForm.querySelector(`[data-custom-item-add="${id}"]`);
+  const value = input ? input.value.trim() : "";
+
+  if (!section || !value) {
+    if (input) {
+      input.focus();
+    }
+    return;
+  }
+
+  section.items = section.items || [];
+  section.items.push(value);
+  renderEditor();
+  renderPreview();
+  saveActiveProject();
+  const nextInput = editorForm.querySelector(`[data-custom-item-add="${id}"]`);
+  if (nextInput) {
+    nextInput.focus();
+  }
+}
+
+function removeCustomItem(id, index) {
+  const section = getCustomSection(id);
+  if (!section || !Array.isArray(section.items)) {
+    return;
+  }
+  section.items.splice(index, 1);
+  renderEditor();
+  renderPreview();
+  saveActiveProject();
 }
 
 function renderEditor() {
@@ -2520,9 +2621,14 @@ function renderEditor() {
     { id: "responsible", body: responsibleBody }
   ];
 
+  (quotationData.customSections || []).forEach((section) => {
+    sections.push({ id: section.id, body: customSectionEditorBody(section), removable: true });
+  });
+
   editorForm.innerHTML = sections
-    .map((section, index) => sectionShell(section.id, index + 1, section.body, { extraClass: section.extraClass }))
-    .join("");
+    .map((section, index) => sectionShell(section.id, index + 1, section.body, { extraClass: section.extraClass, removable: section.removable }))
+    .join("") +
+    `<button type="button" class="add-section-btn" data-add-section>+ إضافة قسم جديد</button>`;
 }
 
 let projectSearchQuery = "";
@@ -2762,7 +2868,7 @@ function renderCover(totalPages) {
   `;
 }
 
-function renderSummary(totalPages) {
+function renderSummary(pageNumber, totalPages) {
   const rows = getProjectRows()
     .map(([label, value]) => `<tr><th>${label}</th><td>${ph(value, label)}</td></tr>`)
     .join("");
@@ -2777,12 +2883,12 @@ function renderSummary(totalPages) {
       </p>
       <table class="data-table"><tbody>${rows}</tbody></table>
     `,
-    2,
+    pageNumber,
     totalPages
   );
 }
 
-function renderScope(totalPages) {
+function renderScope(pageNumber, totalPages) {
   const body = quotationData.scopeGroups
     .map((group) => {
       const items = group.items.filter((item) => item.enabled !== false);
@@ -2810,10 +2916,10 @@ function renderScope(totalPages) {
     })
     .join("");
 
-  return pageShell(getSectionTitle("scope"), body, 3, totalPages);
+  return pageShell(getSectionTitle("scope"), body, pageNumber, totalPages);
 }
 
-function renderDeliverables(totalPages) {
+function renderDeliverables(pageNumber, totalPages) {
   return pageShell(
     getSectionTitle("deliverables"),
     `
@@ -2825,7 +2931,7 @@ function renderDeliverables(totalPages) {
       </ul>
       ${quotationData.notes.trim() ? `<div class="note">${escapeHtml(quotationData.notes)}</div>` : ""}
     `,
-    4,
+    pageNumber,
     totalPages
   );
 }
@@ -2850,7 +2956,7 @@ function getGrandTotal() {
   return subtotal ? subtotal * 1.15 : 0;
 }
 
-function renderFinancial(totalPages) {
+function renderFinancial(pageNumber, totalPages) {
   const validUntil = getValidUntilText();
   const terms = [
     ...quotationData.financialTerms,
@@ -2897,13 +3003,13 @@ function renderFinancial(totalPages) {
       </div>
       ${closingBlock}
     `,
-    5,
+    pageNumber,
     totalPages,
     !quotationData.showOptionalAnnex
   );
 }
 
-function renderOptionalAnnex(totalPages) {
+function renderOptionalAnnex(pageNumber, totalPages) {
   const rows = quotationData.optionalServices
     .map((service) => `
       <tr>
@@ -2932,32 +3038,48 @@ function renderOptionalAnnex(totalPages) {
       </div>
       ${renderClosingBlock()}
     `,
-    6,
+    pageNumber,
     totalPages,
     true
   );
 }
 
+// A user-added section prints as its own page: the section title as the page title and
+// each non-empty line as a list item. Placed after deliverables, before the financial page.
+function renderCustomSection(section, pageNumber, totalPages) {
+  const items = (section.items || []).filter((text) => String(text).trim());
+  const body = `
+    <ul class="custom-section-list">
+      ${items.map((text) => `<li>${escapeHtml(text)}</li>`).join("")}
+    </ul>
+  `;
+
+  return pageShell(getSectionTitle(section.id), body, pageNumber, totalPages);
+}
+
 function renderPreview() {
-  let totalPages = 4;
-  if (quotationData.showDeliverables) totalPages++;
-  if (quotationData.showOptionalAnnex) totalPages++;
+  const customSections = (quotationData.customSections || []).filter(customSectionHasContent);
 
-  const pages = [
-    renderCover(totalPages),
-    renderSummary(totalPages),
-    renderScope(totalPages)
+  // Build the page list in document order, then number them sequentially so toggling the
+  // optional pages or adding custom sections never desyncs the "n/total" footer.
+  const builders = [
+    (n, t) => renderSummary(n, t),
+    (n, t) => renderScope(n, t)
   ];
-
   if (quotationData.showDeliverables) {
-    pages.push(renderDeliverables(totalPages));
+    builders.push((n, t) => renderDeliverables(n, t));
   }
-
-  pages.push(renderFinancial(totalPages));
-
+  customSections.forEach((section) => {
+    builders.push((n, t) => renderCustomSection(section, n, t));
+  });
+  builders.push((n, t) => renderFinancial(n, t));
   if (quotationData.showOptionalAnnex) {
-    pages.push(renderOptionalAnnex(totalPages));
+    builders.push((n, t) => renderOptionalAnnex(n, t));
   }
+
+  const totalPages = builders.length + 1; // + cover (page 1)
+  const pages = [renderCover(totalPages)];
+  builders.forEach((build, index) => pages.push(build(index + 2, totalPages)));
 
   preview.innerHTML = pages.join("");
   pageCount.textContent = `${pages.length} صفحات`;
@@ -3054,12 +3176,31 @@ function updateEditorValue(event) {
   // Editing a section title: store the override and save. No re-render, so the title
   // input keeps focus while typing.
   if (input.dataset.sectionTitle !== undefined) {
-    quotationData.sectionTitles = quotationData.sectionTitles || {};
-    quotationData.sectionTitles[input.dataset.sectionTitle] = input.value;
+    const sectionId = input.dataset.sectionTitle;
+    if (sectionId.startsWith("custom:")) {
+      const section = getCustomSection(sectionId);
+      if (section) {
+        section.title = input.value;
+      }
+    } else {
+      quotationData.sectionTitles = quotationData.sectionTitles || {};
+      quotationData.sectionTitles[sectionId] = input.value;
+    }
     // Re-render the document (not the editor) so synced page titles update live while
     // typing; the editor input keeps focus.
     renderPreview();
     saveActiveProject();
+    return;
+  }
+
+  if (input.dataset.customItem !== undefined) {
+    const section = getCustomSection(input.dataset.customItem);
+    const itemIndex = Number(input.dataset.customIndex);
+    if (section && Array.isArray(section.items) && itemIndex >= 0) {
+      section.items[itemIndex] = input.value;
+      renderPreview();
+      saveActiveProject();
+    }
     return;
   }
 
@@ -3406,6 +3547,9 @@ editorForm.addEventListener("keydown", (event) => {
   } else if (event.target.matches("[data-term-add-input]")) {
     event.preventDefault();
     addFinancialTerm();
+  } else if (event.target.matches("[data-custom-item-add]")) {
+    event.preventDefault();
+    addCustomItem(event.target.dataset.customItemAdd);
   }
 });
 
@@ -3451,6 +3595,29 @@ editorForm.addEventListener("click", (event) => {
   const sectionEdit = event.target.closest("[data-section-edit]");
   if (sectionEdit) {
     beginSectionTitleEdit(sectionEdit.dataset.sectionEdit);
+    return;
+  }
+
+  if (event.target.closest("[data-add-section]")) {
+    addCustomSection();
+    return;
+  }
+
+  const sectionRemove = event.target.closest("[data-section-remove]");
+  if (sectionRemove) {
+    removeCustomSection(sectionRemove.dataset.sectionRemove);
+    return;
+  }
+
+  const customItemAddBtn = event.target.closest("[data-custom-item-add-btn]");
+  if (customItemAddBtn) {
+    addCustomItem(customItemAddBtn.dataset.customItemAddBtn);
+    return;
+  }
+
+  const customItemRemove = event.target.closest("[data-custom-item-remove]");
+  if (customItemRemove) {
+    removeCustomItem(customItemRemove.dataset.customItemRemove, Number(customItemRemove.dataset.customIndex));
     return;
   }
 

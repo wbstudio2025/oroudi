@@ -811,6 +811,48 @@ textarea {
   color: var(--navy);
 }
 
+.add-section-btn {
+  width: 100%;
+  padding: 12px;
+  border: 1px dashed var(--navy);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--navy);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.add-section-btn:hover {
+  background: rgba(48, 54, 64, 0.05);
+}
+
+/* Printed custom section: simple lined list under the page title. */
+.custom-section-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.custom-section-list li {
+  position: relative;
+  padding: 8px 18px 8px 0;
+  border-bottom: 1px solid var(--line);
+  line-height: 1.7;
+}
+
+.custom-section-list li::before {
+  content: "•";
+  position: absolute;
+  right: 0;
+  color: var(--navy);
+}
+
+.custom-section-list li:last-child {
+  border-bottom: 0;
+}
+
 .section-remove {
   flex-shrink: 0;
   width: 26px;

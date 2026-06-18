@@ -154,10 +154,12 @@ test("page numbering appears only centered under the footer as current over tota
   assert.match(app, /function renderFooter\(pageNumber, totalPages\)/);
   assert.match(app, /class="page-number">\$\{pageNumber\}\/\$\{totalPages\}<\/span>/);
   assert.doesNotMatch(app, /class="doc-meta">[^`]*صفحة/);
-  // totalPages is computed dynamically as the optional pages (deliverables, annex) toggle.
-  assert.match(app, /let totalPages = 4;/);
-  assert.match(app, /if \(quotationData\.showDeliverables\) totalPages\+\+;/);
-  assert.match(app, /if \(quotationData\.showOptionalAnnex\) totalPages\+\+;/);
+  // Pages are assembled as builders then numbered sequentially, so the footer "n/total"
+  // stays correct as optional and custom pages are added or removed.
+  assert.match(app, /const totalPages = builders\.length \+ 1;/);
+  assert.match(app, /pages\.push\(build\(index \+ 2, totalPages\)\)/);
+  assert.match(app, /if \(quotationData\.showDeliverables\) \{\s*\n\s*builders\.push/);
+  assert.match(app, /if \(quotationData\.showOptionalAnnex\) \{\s*\n\s*builders\.push/);
   assert.match(app, /renderCover\(totalPages\)/);
   assert.match(css, /\.page-number\s*{[\s\S]*justify-self:\s*center/);
 });
@@ -225,7 +227,7 @@ test("input panel sections are a numbered, collapsible accordion with editable t
   // Titles are persisted per-quotation in sectionTitles.
   assert.match(app, /sectionTitles:\s*\{\}/);
   assert.match(app, /data-section-title=/);
-  assert.match(app, /quotationData\.sectionTitles\[input\.dataset\.sectionTitle\] = input\.value/);
+  assert.match(app, /quotationData\.sectionTitles\[sectionId\] = input\.value/);
 
   // Accordion styling hooks exist.
   assert.match(css, /\.accordion-section\s*{/);
@@ -254,7 +256,34 @@ test("section titles are edited via an edit button and sync to the PDF page titl
   assert.match(app, /getSectionTitle\("optional"\)/);
 
   // Typing a title re-renders the document (live PDF sync) without re-rendering the editor.
-  assert.match(app, /quotationData\.sectionTitles\[input\.dataset\.sectionTitle\] = input\.value;\s*\n\s*\/\/[\s\S]*?renderPreview\(\);/);
+  assert.match(app, /renderPreview\(\);\s*\n\s*saveActiveProject\(\);/);
+});
+
+test("users can add custom sections that print as their own page in the quotation", () => {
+  // Data model + CRUD.
+  assert.match(app, /customSections:\s*\[\]/);
+  assert.match(app, /function addCustomSection\(\)/);
+  assert.match(app, /function removeCustomSection\(id\)/);
+  assert.match(app, /function addCustomItem\(id\)/);
+  assert.match(app, /function removeCustomItem\(id, index\)/);
+  assert.match(app, /id = `custom:\$\{createProjectId\(\)\}`/);
+
+  // Editor: removable accordion sections + an add-section button.
+  assert.match(app, /removable: section\.removable/);
+  assert.match(app, /class="add-section-btn" data-add-section/);
+  assert.match(app, /const sectionRemove = event\.target\.closest\("\[data-section-remove\]"\);/);
+
+  // Custom titles live on the section object (custom-aware getter and setter).
+  assert.match(app, /sectionId\.startsWith\("custom:"\)/);
+  assert.match(app, /id\.startsWith\("custom:"\)/);
+
+  // Printed as its own page, inserted before the financial page, numbered with the rest.
+  assert.match(app, /function renderCustomSection\(section, pageNumber, totalPages\)/);
+  assert.match(app, /builders\.push\(\(n, t\) => renderCustomSection\(section, n, t\)\)/);
+  assert.match(app, /customSectionHasContent/);
+  assert.match(app, /class="custom-section-list"/);
+  assert.match(css, /\.add-section-btn\s*{/);
+  assert.match(css, /\.custom-section-list\s*{/);
 });
 
 test("optional service money fields show contextual Riyal units", () => {
