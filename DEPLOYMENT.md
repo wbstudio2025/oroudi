@@ -11,8 +11,9 @@ It runs three ways:
 2. **Hosted, local-only** — publish `public/`; without Supabase keys it stays per-browser.
 3. **Hosted + shared office** — add Supabase credentials to enable login, cloud sync, and storage.
 
-**No credentials are committed.** The committed `public/supabase-config.js` is empty; the real
-(public, anon) keys live only in your local copy of that file and are uploaded at deploy time.
+**The Supabase keys are public and committed.** `public/supabase-config.js` ships the project URL +
+anon key — both are safe to expose (Row-Level Security in `supabase/schema.sql` is what protects
+data). No private credentials live in the repo (`.env` and password notes stay git-ignored).
 
 Target platforms:
 
@@ -47,6 +48,7 @@ Cloudflare now serves static sites as **Workers with static Assets**, configured
 
 ```toml
 name = "oroudi"
+account_id = "6a3ad43536ae7b07e902fc05734faf14"
 compatibility_date = "2025-06-18"
 
 [assets]
@@ -56,10 +58,29 @@ not_found_handling = "single-page-application"
 
 `directory = "public"` is what keeps the deploy clean — only the app ships, not the SQL/tests/docs.
 
-### Deploy with the Wrangler CLI (recommended)
+### Auto-deploy from GitHub (recommended)
 
-This uploads your **local** files directly, so your local `public/supabase-config.js` (with the
-real anon keys) ships as-is — no build step, no Hello-World template trap.
+Every push to `main` automatically publishes `public/` to Cloudflare. This is wired by the
+`deploy` job in [`.github/workflows/ci.yml`](.github/workflows/ci.yml), which runs **after** the
+test job passes (a red build never ships) using `cloudflare/wrangler-action`.
+
+One-time setup:
+
+1. **Create a Cloudflare API token** — Cloudflare dashboard ▸ **My Profile ▸ API Tokens ▸ Create
+   Token** ▸ use the **"Edit Cloudflare Workers"** template ▸ Continue to summary ▸ Create Token.
+   Copy the token (shown once).
+2. **Add it to GitHub** — repo ▸ **Settings ▸ Secrets and variables ▸ Actions ▸ New repository
+   secret** ▸ name it exactly `CLOUDFLARE_API_TOKEN`, paste the token, save.
+3. Push to `main` (or re-run the latest run under the repo's **Actions** tab). The `deploy` job
+   uploads `public/` and the change is live within ~30s.
+
+The account is pinned via `account_id` in [`wrangler.toml`](wrangler.toml), so the API token is the
+only secret CI needs. After the first deploy, confirm the `workers.dev` route is enabled under the
+Worker's **Settings → Domains & Routes**.
+
+### Manual deploy with the Wrangler CLI (fallback)
+
+Still available any time — uploads your local `public/` directly, no build step:
 
 ```powershell
 # from the project folder
@@ -67,26 +88,7 @@ npx wrangler login      # one time — opens a browser to authorize
 npx wrangler deploy     # publishes public/ to https://oroudi.<subdomain>.workers.dev
 ```
 
-After the first deploy, enable the public URL under the Worker's **Settings → Domains & Routes**
-(`workers.dev` route) if it is not already on. Re-run `npx wrangler deploy` to publish updates.
-
 `public/_headers` applies security headers site-wide and long-caches `/assets/*` (fonts, logos).
-
-### Alternative: GitHub → Cloudflare auto-build
-
-If you prefer auto-deploy on every push, connect the repo in the dashboard and set a build command
-that injects the keys from environment variables (so they stay out of git). The app reads
-`window.OROUDI_SUPABASE_CONFIG` from `public/supabase-config.js`:
-
-```
-Build command:
-node -e "require('fs').writeFileSync('public/supabase-config.js','window.OROUDI_SUPABASE_CONFIG={SUPABASE_URL:'+JSON.stringify(process.env.SUPABASE_URL||'')+',SUPABASE_ANON_KEY:'+JSON.stringify(process.env.SUPABASE_ANON_KEY||'')+'};')"
-```
-
-Add `SUPABASE_URL` / `SUPABASE_ANON_KEY` under the project's **Environment variables**.
-
-Until keys are present, the hosted site works **local-only** (the header shows
-"محلي فقط - أضف إعدادات Supabase للنشر") — no errors.
 
 ### Custom domain
 
@@ -117,8 +119,8 @@ keeps them from seeing anyone else's). Setup:
    (You can enable confirmation later — when you do, also set **Site URL** and **Redirect URLs**
    under **Authentication → URL Configuration**, e.g. your deployed `workers.dev` origin and
    `http://127.0.0.1:8137` for local testing.)
-5. Put the Project URL + anon key into your local `public/supabase-config.js` (kept out of git;
-   uploaded by `wrangler deploy`), or use the build-injection path above.
+5. Put the Project URL + anon key into `public/supabase-config.js` and commit them (both are public;
+   RLS protects the data). Pushing to `main` deploys them automatically.
 
 > **Single shared office instead?** If you'd rather have one office whose projects everyone shares
 > (the older model), skip step 3 and instead add one user under **Authentication → Users**, then run
@@ -142,8 +144,8 @@ and localStorage is only a cache/fallback. Concurrent edits use last-save-wins.
 
 ## Checklist
 
-- [ ] `git push` to GitHub; CI green.
-- [ ] `npx wrangler login` then `npx wrangler deploy` (serves `public/`); `workers.dev` URL enabled.
+- [ ] `CLOUDFLARE_API_TOKEN` added as a GitHub Actions secret (one time).
+- [ ] `git push` to `main` → CI runs tests, then auto-deploys to Cloudflare; `workers.dev` URL enabled.
 - [ ] Supabase project created; `schema.sql` + `self-serve-signup.sql` run.
-- [ ] Supabase URL + anon key in local `public/supabase-config.js` (or env injection).
+- [ ] Supabase URL + anon key committed in `public/supabase-config.js`.
 - [ ] Custom domain attached (optional).

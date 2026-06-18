@@ -657,7 +657,8 @@ test("deployment scaffolding is present for GitHub, Cloudflare, and Supabase", (
     assert.ok(deploy.includes(token), `DEPLOYMENT.md should mention ${token}`)
   );
 
-  // Public Supabase config stays committed but empty, so the app boots local-only.
-  assert.match(config, /SUPABASE_URL:\s*""/);
-  assert.match(config, /SUPABASE_ANON_KEY:\s*""/);
+  // Public Supabase config ships the real (public, RLS-protected) keys so the
+  // hosted site has cloud auth/sync. These values are safe to commit and ship.
+  assert.match(config, /SUPABASE_URL:\s*"https:\/\/[^"]+\.supabase\.co"/);
+  assert.match(config, /SUPABASE_ANON_KEY:\s*"ey[A-Za-z0-9._-]+"/);
 });
