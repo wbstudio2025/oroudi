@@ -2061,21 +2061,49 @@ function renderDatePicker(field) {
 // while in-section edits (which call renderEditor only) keep the open section open.
 const expandedSections = new Set();
 
-function getSectionTitle(id, fallback) {
+// Which section title is currently in edit mode (null = none). Titles show as static text
+// with a small ✎ button; clicking it swaps just that title to an input.
+let editingSectionTitle = null;
+
+// Default section titles, shared by the editor and the PDF so a rename stays in sync.
+// scope / deliverables / financial / optional are also the document's page titles, so
+// renaming those sections renames the matching page in the quotation (see the render*
+// functions). The others have no standalone heading in the PDF, so their titles are
+// editor-only labels.
+const SECTION_DEFAULT_TITLES = {
+  client: "بيانات العميل والعرض",
+  project: "بيانات المشروع",
+  scope: "نطاق الأعمال",
+  deliverables: "المخرجات المتوقعة",
+  financial: "العرض المالي",
+  terms: "الشروط المالية",
+  payments: "جدول الدفعات والضريبة",
+  optional: "ملحق الخدمات الاختيارية",
+  responsible: "المسؤول عن تجهيز العرض"
+};
+
+function getSectionTitle(id) {
   const overrides = (quotationData && quotationData.sectionTitles) || {};
   const value = overrides[id];
-  return typeof value === "string" && value.trim() ? value : fallback;
+  return typeof value === "string" && value.trim() ? value : (SECTION_DEFAULT_TITLES[id] || "");
 }
 
-// Wraps a section's inputs in a collapsible, numbered accordion card with an editable
-// title. `opts.extraClass` keeps section-specific styling hooks; `opts.removable` adds a
-// delete control for user-added custom sections.
-function sectionShell(id, number, defaultTitle, bodyHtml, opts = {}) {
+// Wraps a section's inputs in a collapsible, numbered accordion card. The title shows as
+// text with an edit (✎) button; while editing it becomes an input. `opts.extraClass` keeps
+// section-specific styling hooks; `opts.removable` adds a delete control for custom sections.
+function sectionShell(id, number, bodyHtml, opts = {}) {
   const open = expandedSections.has(id);
+  const editing = editingSectionTitle === id;
+  const title = getSectionTitle(id);
   const extraClass = opts.extraClass ? ` ${opts.extraClass}` : "";
   const removeBtn = opts.removable
     ? `<button type="button" class="section-remove" data-section-remove="${escapeHtml(id)}" aria-label="حذف القسم" title="حذف القسم">×</button>`
     : "";
+  const titleArea = editing
+    ? `<input class="section-title-input" type="text" value="${escapeHtml(title)}" data-section-title="${escapeHtml(id)}" aria-label="عنوان القسم" placeholder="عنوان القسم">
+        <button type="button" class="section-edit is-done" data-section-edit="${escapeHtml(id)}" aria-label="حفظ العنوان" title="حفظ العنوان">✓</button>`
+    : `<span class="section-title-text">${escapeHtml(title)}</span>
+        <button type="button" class="section-edit" data-section-edit="${escapeHtml(id)}" aria-label="تعديل العنوان" title="تعديل العنوان">✎</button>`;
 
   return `
     <section class="form-group accordion-section${open ? " is-open" : ""}${extraClass}" data-section="${escapeHtml(id)}">
@@ -2084,7 +2112,7 @@ function sectionShell(id, number, defaultTitle, bodyHtml, opts = {}) {
           <span class="section-num">${number}</span>
           <span class="section-chevron" aria-hidden="true"></span>
         </button>
-        <input class="section-title-input" type="text" value="${escapeHtml(getSectionTitle(id, defaultTitle))}" data-section-title="${escapeHtml(id)}" aria-label="عنوان القسم" placeholder="عنوان القسم">
+        ${titleArea}
         ${removeBtn}
       </div>
       <div class="section-body"${open ? "" : " hidden"}>
@@ -2095,12 +2123,28 @@ function sectionShell(id, number, defaultTitle, bodyHtml, opts = {}) {
 }
 
 function toggleSection(id) {
+  editingSectionTitle = null; // collapsing/expanding exits title edit mode
   if (expandedSections.has(id)) {
     expandedSections.delete(id);
   } else {
     expandedSections.add(id);
   }
   renderEditor();
+}
+
+// Toggle edit mode for one section's title. Re-renders, then focuses the input with the
+// caret at the end. Clicking another section's ✎ moves edit mode there (no stale state).
+function beginSectionTitleEdit(id) {
+  editingSectionTitle = editingSectionTitle === id ? null : id;
+  renderEditor();
+
+  if (editingSectionTitle === id) {
+    const input = editorForm.querySelector(`[data-section-title="${id}"]`);
+    if (input) {
+      input.focus();
+      input.setSelectionRange(input.value.length, input.value.length);
+    }
+  }
 }
 
 function renderEditor() {
@@ -2266,7 +2310,7 @@ function renderEditor() {
         })
         .join("");
 
-      return { id: group.id, title: group.title, body: inputs };
+      return { id: group.id, body: inputs };
     });
 
   const responsibleTitleSelectOptions = responsibleTitleOptions
@@ -2467,17 +2511,17 @@ function renderEditor() {
 
   const sections = [
     ...builtinSections,
-    { id: "scope", title: "نطاق الأعمال", body: scopeBody, extraClass: "scope-editor" },
-    { id: "deliverables", title: "المخرجات المتوقعة", body: deliverablesBody, extraClass: "scope-editor" },
-    { id: "financial", title: "العرض المالي والملاحظات", body: financialBody },
-    { id: "terms", title: "الشروط المالية", body: termsBody, extraClass: "scope-editor" },
-    { id: "payments", title: "جدول الدفعات والضريبة", body: paymentsBody, extraClass: "scope-editor" },
-    { id: "optional", title: "أسعار الخدمات الاختيارية", body: optionalBody },
-    { id: "responsible", title: "المسؤول عن تجهيز العرض", body: responsibleBody }
+    { id: "scope", body: scopeBody, extraClass: "scope-editor" },
+    { id: "deliverables", body: deliverablesBody, extraClass: "scope-editor" },
+    { id: "financial", body: financialBody },
+    { id: "terms", body: termsBody, extraClass: "scope-editor" },
+    { id: "payments", body: paymentsBody, extraClass: "scope-editor" },
+    { id: "optional", body: optionalBody },
+    { id: "responsible", body: responsibleBody }
   ];
 
   editorForm.innerHTML = sections
-    .map((section, index) => sectionShell(section.id, index + 1, section.title, section.body, { extraClass: section.extraClass }))
+    .map((section, index) => sectionShell(section.id, index + 1, section.body, { extraClass: section.extraClass }))
     .join("");
 }
 
@@ -2766,12 +2810,12 @@ function renderScope(totalPages) {
     })
     .join("");
 
-  return pageShell("نطاق الأعمال", body, 3, totalPages);
+  return pageShell(getSectionTitle("scope"), body, 3, totalPages);
 }
 
 function renderDeliverables(totalPages) {
   return pageShell(
-    "المخرجات المتوقعة",
+    getSectionTitle("deliverables"),
     `
       <ul class="deliverables-list">
         ${quotationData.deliverables
@@ -2825,7 +2869,7 @@ function renderFinancial(totalPages) {
     : "";
 
   return pageShell(
-    "العرض المالي",
+    getSectionTitle("financial"),
     `
       <div class="price-card">
         <span>القيمة الأساسية للعرض</span>
@@ -2871,7 +2915,7 @@ function renderOptionalAnnex(totalPages) {
     .join("");
 
   return pageShell(
-    "ملحق الخدمات الاختيارية",
+    getSectionTitle("optional"),
     `
       <table class="services-table">
         <thead>
@@ -2971,6 +3015,7 @@ function renderApp() {
   // Full reloads (init, switch/create/duplicate project) start with every section
   // collapsed; in-section edits call renderEditor directly and keep sections open.
   expandedSections.clear();
+  editingSectionTitle = null;
   renderShellBrand();
   renderEditor();
   renderPreview();
@@ -3011,6 +3056,9 @@ function updateEditorValue(event) {
   if (input.dataset.sectionTitle !== undefined) {
     quotationData.sectionTitles = quotationData.sectionTitles || {};
     quotationData.sectionTitles[input.dataset.sectionTitle] = input.value;
+    // Re-render the document (not the editor) so synced page titles update live while
+    // typing; the editor input keeps focus.
+    renderPreview();
     saveActiveProject();
     return;
   }
@@ -3332,6 +3380,16 @@ function removeFinancialTerm(index) {
 editorForm.addEventListener("submit", (event) => event.preventDefault());
 
 editorForm.addEventListener("keydown", (event) => {
+  // Enter or Escape confirms a section-title edit and returns it to read-only text.
+  if (event.target.matches("[data-section-title]")) {
+    if (event.key === "Enter" || event.key === "Escape") {
+      event.preventDefault();
+      editingSectionTitle = null;
+      renderEditor();
+    }
+    return;
+  }
+
   if (event.key !== "Enter") {
     return;
   }
@@ -3387,6 +3445,12 @@ editorForm.addEventListener("click", (event) => {
   const sectionToggle = event.target.closest("[data-section-toggle]");
   if (sectionToggle) {
     toggleSection(sectionToggle.dataset.sectionToggle);
+    return;
+  }
+
+  const sectionEdit = event.target.closest("[data-section-edit]");
+  if (sectionEdit) {
+    beginSectionTitleEdit(sectionEdit.dataset.sectionEdit);
     return;
   }
 

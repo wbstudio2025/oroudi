@@ -775,14 +775,40 @@ textarea {
   font-weight: 700;
 }
 
-.section-title-input:hover {
-  border-color: var(--line);
-}
-
 .section-title-input:focus {
   border-color: var(--navy);
   background: #fff;
   outline: none;
+}
+
+.section-title-text {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 8px;
+  color: var(--navy);
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.section-edit {
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.section-edit:hover,
+.section-edit.is-done {
+  border-color: var(--navy);
+  color: var(--navy);
 }
 
 .section-remove {

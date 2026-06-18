@@ -197,7 +197,7 @@ test("responsible person fields render at the end and drive the PDF contact butt
   assert.match(app, /const responsibleTitleOptions\s*=\s*\["المهندس", "المهندسة", "السيد", "السيدة"\]/);
   assert.match(app, /function getResponsibleDisplayName/);
   assert.match(app, /function getResponsibleContactUrl/);
-  assert.match(app, /title: "المسؤول عن تجهيز العرض"/);
+  assert.match(app, /responsible: "المسؤول عن تجهيز العرض"/);
   assert.match(app, /class="field responsible-name-row"/);
   assert.match(app, /id="responsiblePhone"/);
   assert.match(app, /class="acceptance-contact-btn"/);
@@ -209,7 +209,7 @@ test("responsible person fields render at the end and drive the PDF contact butt
 
 test("input panel sections are a numbered, collapsible accordion with editable titles", () => {
   // Every section is wrapped by sectionShell with a sequential number and a collapse toggle.
-  assert.match(app, /function sectionShell\(id, number, defaultTitle, bodyHtml/);
+  assert.match(app, /function sectionShell\(id, number, bodyHtml, opts/);
   assert.match(app, /class="form-group accordion-section/);
   assert.match(app, /data-section-toggle=/);
   assert.match(app, /class="section-num">\$\{number\}/);
@@ -222,7 +222,7 @@ test("input panel sections are a numbered, collapsible accordion with editable t
   assert.match(app, /function renderApp\(\)\s*{\s*[\s\S]*?expandedSections\.clear\(\);/);
   assert.match(app, /function toggleSection\(id\)/);
 
-  // Titles are editable inputs, persisted per-quotation in sectionTitles.
+  // Titles are persisted per-quotation in sectionTitles.
   assert.match(app, /sectionTitles:\s*\{\}/);
   assert.match(app, /data-section-title=/);
   assert.match(app, /quotationData\.sectionTitles\[input\.dataset\.sectionTitle\] = input\.value/);
@@ -231,6 +231,30 @@ test("input panel sections are a numbered, collapsible accordion with editable t
   assert.match(css, /\.accordion-section\s*{/);
   assert.match(css, /\.section-num\s*{/);
   assert.match(css, /\.section-title-input\s*{/);
+});
+
+test("section titles are edited via an edit button and sync to the PDF page titles", () => {
+  // Titles read as text with a separate ✎ edit button (not edit-on-click of the text).
+  assert.match(app, /class="section-title-text"/);
+  assert.match(app, /data-section-edit=/);
+  assert.match(app, /let editingSectionTitle = null;/);
+  assert.match(app, /function beginSectionTitleEdit\(id\)/);
+  assert.match(app, /const sectionEdit = event\.target\.closest\("\[data-section-edit\]"\);/);
+  assert.match(css, /\.section-edit\s*{/);
+  assert.match(css, /\.section-title-text\s*{/);
+
+  // One shared default-title map feeds both the editor and the document.
+  assert.match(app, /const SECTION_DEFAULT_TITLES = \{/);
+
+  // The four sections that are their own PDF page take their heading from the section title,
+  // so renaming the section renames the page in the quotation.
+  assert.match(app, /pageShell\(getSectionTitle\("scope"\)/);
+  assert.match(app, /getSectionTitle\("deliverables"\)/);
+  assert.match(app, /getSectionTitle\("financial"\)/);
+  assert.match(app, /getSectionTitle\("optional"\)/);
+
+  // Typing a title re-renders the document (live PDF sync) without re-rendering the editor.
+  assert.match(app, /quotationData\.sectionTitles\[input\.dataset\.sectionTitle\] = input\.value;\s*\n\s*\/\/[\s\S]*?renderPreview\(\);/);
 });
 
 test("optional service money fields show contextual Riyal units", () => {
