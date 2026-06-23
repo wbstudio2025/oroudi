@@ -66,6 +66,31 @@ test("shared office login syncs brand profile and projects through Supabase", ()
   assert.match(app, /function persistProjects\(\)[\s\S]*scheduleCloudProjectSync\(\);/);
 });
 
+test("cloud login can be skipped so hosted users can continue without sync", () => {
+  assert.match(html, /id="continueLocalBtn"/);
+  assert.match(html, /id="cloudLoginBtn"/);
+  assert.match(html, /متابعة بدون مزامنة/);
+  assert.match(app, /const LOCAL_MODE_STORAGE_KEY = "oroudiLocalMode"/);
+  assert.match(app, /const cloudLoginBtn = document\.querySelector\("#cloudLoginBtn"\)/);
+  assert.match(app, /function continueWithoutSync\(\)/);
+  assert.match(app, /localStorage\.setItem\(LOCAL_MODE_STORAGE_KEY, "1"\)/);
+  assert.match(app, /function isLocalModePreferred\(\)/);
+  assert.match(app, /if \(isLocalModePreferred\(\)\) \{\s*\n\s*setSyncStatus\("local", "محلي فقط - بدون مزامنة"\);/);
+  assert.match(app, /function showCloudLogin\(\)/);
+  assert.match(app, /cloudLoginBtn\.addEventListener\("click", showCloudLogin\)/);
+  assert.match(app, /continueLocalBtn\.addEventListener\("click", continueWithoutSync\)/);
+});
+
+test("returning from no-sync mode keeps cloud auth session handling wired", () => {
+  assert.match(app, /authListenerBound:\s*false/);
+  assert.match(app, /function bindAuthStateListener\(\)/);
+  assert.match(app, /if \(cloudState\.authListenerBound \|\| !cloudState\.client\)/);
+  assert.match(app, /cloudState\.authListenerBound = true/);
+  assert.match(app, /bindAuthStateListener\(\);\s*\n\s*if \(isLocalModePreferred\(\)\)/);
+  assert.match(app, /async function showCloudLogin\(\)/);
+  assert.match(app, /await initializeCloudSession\(\)/);
+});
+
 test("scope cards choose semantic icons by item name", () => {
   assert.match(app, /const scopeIconMap\s*=/);
   [

@@ -1,8 +1,8 @@
 # عروضي (Oroudi) Quotation Editor - minimal local web server.
 #
 # Why this exists: the editor needs to run from a real http://localhost origin (not file://)
-# so that (a) saved quotations always live under one stable origin, and (b) the silent
-# automatic backup (File System Access API) is allowed, which requires a secure context.
+# so saved quotations always live under one stable browser storage origin. Cloud sync is
+# handled by the frontend when Supabase is configured; this server only serves static files.
 #
 # It uses only built-in Windows PowerShell + .NET (System.Net.Sockets) -- no Node, no Python,
 # no admin rights, no firewall changes (binds to loopback 127.0.0.1 only). It serves the files

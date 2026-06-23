@@ -9,7 +9,7 @@ It runs three ways:
 
 1. **Local Windows install** — the existing `setup.bat` / Edge app-mode flow (see [`INSTALL.md`](INSTALL.md)); `server.ps1` serves `public/`.
 2. **Hosted, local-only** — publish `public/`; without Supabase keys it stays per-browser.
-3. **Hosted + shared office** — add Supabase credentials to enable login, cloud sync, and storage.
+3. **Hosted + cloud sync** — add Supabase public config to enable login and per-user workspaces.
 
 **The Supabase keys are public and committed.** `public/supabase-config.js` ships the project URL +
 anon key — both are safe to expose (Row-Level Security in `supabase/schema.sql` is what protects
@@ -19,7 +19,8 @@ Target platforms:
 
 - **GitHub** → source repository (+ CI runs the test suite on every push/PR).
 - **Cloudflare** (Workers + Assets, deployed with **Wrangler**) → static frontend hosting.
-- **Supabase** → Postgres database + auth + storage for the office workspace.
+- **Supabase** → Postgres database + auth for the office workspace, plus a provisioned private
+  `office-assets` bucket for future/storage-backed asset handling.
 
 ---
 
@@ -96,7 +97,7 @@ The Worker's **Domains & Routes** → add your domain and follow the DNS instruc
 
 ---
 
-## 3. Supabase — database + auth + storage
+## 3. Supabase — database + auth
 
 The schema is in [`supabase/schema.sql`](supabase/schema.sql) and mirrors the front-end's data
 shapes 1:1 (offices → members → projects, all JSONB), with Row-Level Security so each user only
@@ -108,8 +109,9 @@ keeps them from seeing anyone else's). Setup:
 
 1. Create a Supabase project (note the project URL + anon key under **Project Settings → API**).
 2. **SQL Editor** → paste and run [`supabase/schema.sql`](supabase/schema.sql).
-   This creates the `offices`, `members`, `projects` tables, RLS policies, and the private
-   `office-assets` storage bucket (logos, stamps, footer art, QR images).
+   This creates the `offices`, `members`, `projects` tables, RLS policies, and a private
+   `office-assets` storage bucket. The current frontend stores uploaded brand images in the
+   office brand-profile JSON; the bucket is provisioned for a future/storage-backed asset path.
 3. **SQL Editor** → paste and run [`supabase/self-serve-signup.sql`](supabase/self-serve-signup.sql).
    This installs a trigger so every new signup automatically gets its own office + owner membership
    (otherwise a brand-new user has no office and is locked out). _Run this instead of
@@ -128,9 +130,13 @@ keeps them from seeing anyone else's). Setup:
 
 ### How sync behaves
 
-When a user logs in, their office's cloud projects load from Supabase. If the cloud is empty on
-first login, the current browser's local projects are uploaded once; after that **cloud data wins**
-and localStorage is only a cache/fallback. Concurrent edits use last-save-wins.
+When Supabase config is present, the hosted app shows the login card first. Users can either sign in
+for cloud sync or choose **متابعة بدون مزامنة** to continue in browser-local mode on the same
+Cloudflare site. Browser-local mode does not upload projects and is tied to that browser's storage.
+
+When a user logs in, their office's cloud projects load from Supabase. If the cloud is empty on first
+login, the current browser's local projects are uploaded once; after that **cloud data wins** and
+localStorage is only a cache/fallback. Concurrent edits use last-save-wins.
 
 ---
 
@@ -139,8 +145,9 @@ and localStorage is only a cache/fallback. Concurrent edits use last-save-wins.
 - **Tests:** `npm test` (or `node tests/quotation-static.test.js`) — runs in CI on every push.
 - **Local-only path:** open the deployed URL; the header should read "محلي فقط…" and editing/printing
   must work with no console errors.
-- **Shared path:** after Supabase is wired, the login overlay appears; sign up / sign in, then saved
-  projects sync across browsers.
+- **Cloud path:** after Supabase is wired, the login overlay appears. Sign up / sign in to sync
+  projects across browsers, or choose **متابعة بدون مزامنة** to verify browser-local use on the
+  hosted app.
 
 ## Checklist
 

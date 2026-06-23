@@ -117,6 +117,8 @@
           <span id="authSwitchPrompt">ليس لديك حساب؟</span>
           <button id="authModeToggle" class="link-btn" type="button">إنشاء حساب جديد</button>
         </p>
+        <button id="continueLocalBtn" class="link-btn local-mode-btn" type="button">متابعة بدون مزامنة</button>
+        <p class="local-mode-note">يمكنك تجهيز العروض على هذا الجهاز الآن، وتسجيل الدخول لاحقاً للمزامنة.</p>
         <button id="introReplayBtn" class="link-btn intro-replay" type="button">كيف يعمل التطبيق؟</button>
       </form>
     </section>
@@ -131,6 +133,7 @@
       </div>
       <div class="actions">
         <span id="syncStatus" class="sync-status" aria-live="polite">محلي فقط</span>
+        <button id="cloudLoginBtn" class="secondary-btn" type="button" hidden>تسجيل الدخول للمزامنة</button>
         <button id="logoutBtn" class="secondary-btn" type="button" hidden>تسجيل الخروج</button>
         <button id="officeSettingsBtn" class="secondary-btn" type="button">
           <svg viewBox="0 0 24 24" aria-hidden="true">

@@ -221,15 +221,18 @@ const loginHeading = document.querySelector("#loginHeading");
 const loginIntro = document.querySelector("#loginIntro");
 const authModeToggle = document.querySelector("#authModeToggle");
 const authSwitchPrompt = document.querySelector("#authSwitchPrompt");
+const continueLocalBtn = document.querySelector("#continueLocalBtn");
 const signupOfficeName = document.querySelector("#signupOfficeName");
 const officeNameLabel = document.querySelector("#officeNameLabel");
 const syncStatus = document.querySelector("#syncStatus");
+const cloudLoginBtn = document.querySelector("#cloudLoginBtn");
 const logoutBtn = document.querySelector("#logoutBtn");
 
 let authMode = "signin";
 
 const PROJECTS_STORAGE_KEY = "duralNafisQuotationProjects";
 const ACTIVE_PROJECT_STORAGE_KEY = "duralNafisActiveQuotationProject";
+const LOCAL_MODE_STORAGE_KEY = "oroudiLocalMode";
 const ORIGINAL_DOCUMENT_TITLE = document.title;
 const CLOUD_SYNC_DEBOUNCE_MS = 900;
 
@@ -242,7 +245,8 @@ const cloudState = {
   projectTimer: 0,
   brandTimer: 0,
   pendingDeleteIds: new Set(),
-  applyingCloud: false
+  applyingCloud: false,
+  authListenerBound: false
 };
 
 const projectTypeOptions = [
@@ -1414,14 +1418,55 @@ function setLoginMessage(message) {
   }
 }
 
+function isLocalModePreferred() {
+  try {
+    return localStorage.getItem(LOCAL_MODE_STORAGE_KEY) === "1";
+  } catch (error) {
+    return false;
+  }
+}
+
+function setLocalModePreference(enabled) {
+  try {
+    if (enabled) {
+      localStorage.setItem(LOCAL_MODE_STORAGE_KEY, "1");
+    } else {
+      localStorage.removeItem(LOCAL_MODE_STORAGE_KEY);
+    }
+  } catch (error) {
+    // Ignore storage failures; the current click still continues locally.
+  }
+}
+
 function showLoginOverlay(show) {
   if (loginOverlay) {
     loginOverlay.hidden = !show;
   }
 
-  if (logoutBtn) {
-    logoutBtn.hidden = show || !cloudState.configured;
+  if (cloudLoginBtn) {
+    cloudLoginBtn.hidden = show || !cloudState.configured || cloudState.ready;
   }
+
+  if (logoutBtn) {
+    logoutBtn.hidden = show || !cloudState.ready;
+  }
+}
+
+function continueWithoutSync() {
+  setLocalModePreference(true);
+  cloudState.ready = false;
+  cloudState.officeId = "";
+  setAuthMode("signin");
+  setLoginMessage("");
+  setSyncStatus("local", "محلي فقط - بدون مزامنة");
+  showLoginOverlay(false);
+}
+
+async function showCloudLogin() {
+  setLocalModePreference(false);
+  setAuthMode("signin");
+  setLoginMessage("");
+  await initializeCloudSession();
 }
 
 function setAuthMode(mode) {
@@ -1672,12 +1717,46 @@ async function loadCloudWorkspace() {
   }
 }
 
+function bindAuthStateListener() {
+  if (cloudState.authListenerBound || !cloudState.client) {
+    return;
+  }
+
+  cloudState.authListenerBound = true;
+  cloudState.client.auth.onAuthStateChange((event, session) => {
+    if (event === "SIGNED_IN" && session) {
+      // Defer out of the auth callback: supabase-js holds an internal lock while
+      // this runs, and awaiting further Supabase calls inside it (loadCloudWorkspace)
+      // contends with that lock and fails. setTimeout(0) runs it after the lock frees.
+      setTimeout(() => loadCloudWorkspace(), 0);
+    } else if (event === "SIGNED_OUT") {
+      cloudState.ready = false;
+      cloudState.officeId = "";
+      if (isLocalModePreferred()) {
+        setSyncStatus("local", "محلي فقط - بدون مزامنة");
+        showLoginOverlay(false);
+      } else {
+        setSyncStatus("error", "غير مسجل الدخول");
+        showLoginOverlay(true);
+      }
+    }
+  });
+}
+
 async function initializeCloudSession() {
   cloudState.client = createSupabaseClient();
   cloudState.configured = Boolean(cloudState.client);
 
   if (!cloudState.client) {
     setSyncStatus("local", "محلي فقط - أضف إعدادات Supabase للنشر");
+    showLoginOverlay(false);
+    return;
+  }
+
+  bindAuthStateListener();
+
+  if (isLocalModePreferred()) {
+    setSyncStatus("local", "محلي فقط - بدون مزامنة");
     showLoginOverlay(false);
     return;
   }
@@ -1691,20 +1770,6 @@ async function initializeCloudSession() {
     setSyncStatus("error", "غير مسجل الدخول");
     showLoginOverlay(true);
   }
-
-  cloudState.client.auth.onAuthStateChange((event, session) => {
-    if (event === "SIGNED_IN" && session) {
-      // Defer out of the auth callback: supabase-js holds an internal lock while
-      // this runs, and awaiting further Supabase calls inside it (loadCloudWorkspace)
-      // contends with that lock and fails. setTimeout(0) runs it after the lock frees.
-      setTimeout(() => loadCloudWorkspace(), 0);
-    } else if (event === "SIGNED_OUT") {
-      cloudState.ready = false;
-      cloudState.officeId = "";
-      setSyncStatus("error", "غير مسجل الدخول");
-      showLoginOverlay(true);
-    }
-  });
 }
 
 function migrateProjectData(data) {
@@ -4132,6 +4197,14 @@ if (authModeToggle) {
   authModeToggle.addEventListener("click", () => {
     setAuthMode(authMode === "signin" ? "signup" : "signin");
   });
+}
+
+if (continueLocalBtn) {
+  continueLocalBtn.addEventListener("click", continueWithoutSync);
+}
+
+if (cloudLoginBtn) {
+  cloudLoginBtn.addEventListener("click", showCloudLogin);
 }
 
 if (logoutBtn) {
