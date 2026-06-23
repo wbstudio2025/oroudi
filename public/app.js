@@ -895,28 +895,35 @@ const projectStatusOptions = [
 
 const fields = [
   {
-    id: "client",
-    title: "بيانات العميل والعرض",
+    id: "start",
+    title: "ابدأ العرض",
     items: [
+      ["serviceCategory", "فئة الخدمة", "category"],
+      ["permitType", "نوع الخدمة", "permit"],
+      ["projectType", "نوع المشروع", "select"],
       ["clientTitle", "اللقب", "clientTitle"],
       ["clientName", "اسم العميل"],
+      ["city", "المدينة"],
+      ["district", "الحي"],
+      ["quotationNumber", "رقم العرض"],
+      ["mainPriceNumber", "قيمة العرض", "money"]
+    ]
+  },
+  {
+    id: "contact",
+    title: "بيانات التواصل والتاريخ",
+    items: [
       ["clientPhone", "رقم الجوال"],
       ["clientEmail", "البريد الإلكتروني", "email"],
-      ["quotationNumber", "رقم العرض"],
       ["date", "التاريخ", "date"],
       ["validityPeriod", "مدة صلاحية العرض", "unit:أيام"],
       ["bilingual", "إظهار العناوين بالإنجليزية", "checkbox"]
     ]
   },
   {
-    id: "project",
-    title: "بيانات المشروع",
+    id: "land",
+    title: "تفاصيل الأرض والصك",
     items: [
-      ["serviceCategory", "فئة الخدمة", "category"],
-      ["permitType", "نوع الخدمة", "permit"],
-      ["projectType", "نوع المشروع", "select"],
-      ["city", "المدينة"],
-      ["district", "الحي"],
       ["plotNumber", "رقم القطعة"],
       ["landArea", "مساحة الأرض", "unit:م²"],
       ["planNumber", "رقم المخطط"],
@@ -2158,11 +2165,16 @@ function renderDatePicker(field) {
   `;
 }
 
-// Which editor sections are expanded. Empty by default → every section starts
-// collapsed, so the long input panel reads as a tidy numbered list. Cleared on every
-// full app render (renderApp) so switching/creating projects always opens collapsed,
-// while in-section edits (which call renderEditor only) keep the open section open.
-const expandedSections = new Set();
+const DEFAULT_OPEN_SECTION_ID = "start";
+
+// Which editor sections are expanded. Full app renders open the fast-start section,
+// while in-section edits (which call renderEditor only) keep the user's open sections.
+const expandedSections = new Set([DEFAULT_OPEN_SECTION_ID]);
+
+function resetExpandedSections() {
+  expandedSections.clear();
+  expandedSections.add(DEFAULT_OPEN_SECTION_ID);
+}
 
 // Which section title is currently in edit mode (null = none). Titles show as static text
 // with a small ✎ button; clicking it swaps just that title to an input.
@@ -2174,8 +2186,9 @@ let editingSectionTitle = null;
 // functions). The others have no standalone heading in the PDF, so their titles are
 // editor-only labels.
 const SECTION_DEFAULT_TITLES = {
-  client: "بيانات العميل والعرض",
-  project: "بيانات المشروع",
+  start: "ابدأ العرض",
+  contact: "بيانات التواصل والتاريخ",
+  land: "تفاصيل الأرض والصك",
   scope: "نطاق الأعمال",
   deliverables: "المخرجات المتوقعة",
   financial: "العرض المالي",
@@ -2514,7 +2527,11 @@ function renderEditor() {
         })
         .join("");
 
-      return { id: group.id, body: inputs };
+      const body = group.id === DEFAULT_OPEN_SECTION_ID
+        ? `<p class="quick-start-hint">اختر الخدمة، اكتب العميل والسعر، ثم اطبع أو احفظ PDF.</p>${inputs}`
+        : inputs;
+
+      return { id: group.id, body };
     });
 
   const responsibleTitleSelectOptions = responsibleTitleOptions
@@ -2642,13 +2659,6 @@ function renderEditor() {
   `;
 
   const financialBody = `
-    <div class="field">
-      <label for="mainPriceNumber">قيمة العرض</label>
-      <div class="money-input-row">
-        <input id="mainPriceNumber" data-key="mainPriceNumber" data-money-key="mainPriceNumber" type="text" inputmode="decimal" placeholder="0" value="${escapeHtml(getMoneyInputValue(quotationData.mainPriceNumber))}">
-        <span>ريال</span>
-      </div>
-    </div>
     <div class="field">
       <label for="mainPriceWritten">قيمة العرض كتابة</label>
       <input id="mainPriceWritten" data-key="mainPriceWritten" type="text" placeholder="قيمة العرض كتابة" value="${escapeHtml(quotationData.mainPriceWritten)}">
@@ -3274,9 +3284,8 @@ function applyPreviewZoom() {
 }
 
 function renderApp() {
-  // Full reloads (init, switch/create/duplicate project) start with every section
-  // collapsed; in-section edits call renderEditor directly and keep sections open.
-  expandedSections.clear();
+  // Full reloads (init, switch/create/duplicate project) return users to fast-start.
+  resetExpandedSections();
   editingSectionTitle = null;
   renderShellBrand();
   renderEditor();

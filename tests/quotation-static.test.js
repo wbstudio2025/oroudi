@@ -252,11 +252,10 @@ test("input panel sections are a numbered, collapsible accordion with editable t
   assert.match(app, /class="section-num">\$\{number\}/);
   assert.match(app, /sections\s*\n?\s*\.map\(\(section, index\) => sectionShell\(section\.id, index \+ 1/);
 
-  // Collapsed by default: the expanded set starts empty, and the body is hidden unless open.
-  assert.match(app, /const expandedSections = new Set\(\);/);
+  // Sections still collapse/expand, but the fast-start section opens by default.
+  assert.match(app, /const expandedSections = new Set\(\[DEFAULT_OPEN_SECTION_ID\]\);/);
   assert.match(app, /class="section-body"\$\{open \? "" : " hidden"\}/);
-  // Full app renders reset every section to collapsed.
-  assert.match(app, /function renderApp\(\)\s*{\s*[\s\S]*?expandedSections\.clear\(\);/);
+  assert.match(app, /function renderApp\(\)\s*{\s*[\s\S]*?resetExpandedSections\(\);/);
   assert.match(app, /function toggleSection\(id\)/);
 
   // Titles are persisted per-quotation in sectionTitles.
@@ -268,6 +267,23 @@ test("input panel sections are a numbered, collapsible accordion with editable t
   assert.match(css, /\.accordion-section\s*{/);
   assert.match(css, /\.section-num\s*{/);
   assert.match(css, /\.section-title-input\s*{/);
+});
+
+test("fast first quote section opens by default with the essential fields", () => {
+  assert.match(app, /const DEFAULT_OPEN_SECTION_ID = "start"/);
+  assert.match(app, /title: "ابدأ العرض"/);
+  assert.match(app, /اختر الخدمة، اكتب العميل والسعر، ثم اطبع أو احفظ PDF/);
+  assert.match(app, /function resetExpandedSections\(\)\s*{[\s\S]*expandedSections\.add\(DEFAULT_OPEN_SECTION_ID\)/);
+  assert.match(app, /id: "start"[\s\S]*\["serviceCategory", "فئة الخدمة", "category"\][\s\S]*\["permitType", "نوع الخدمة", "permit"\][\s\S]*\["projectType", "نوع المشروع", "select"\][\s\S]*\["clientTitle", "اللقب", "clientTitle"\][\s\S]*\["city", "المدينة"\][\s\S]*\["district", "الحي"\][\s\S]*\["quotationNumber", "رقم العرض"\][\s\S]*\["mainPriceNumber", "قيمة العرض", "money"\]/);
+});
+
+test("follow-up editor sections separate contact/date from land/deed details", () => {
+  assert.match(app, /id: "contact"[\s\S]*title: "بيانات التواصل والتاريخ"[\s\S]*\["clientPhone", "رقم الجوال"\][\s\S]*\["clientEmail", "البريد الإلكتروني", "email"\][\s\S]*\["date", "التاريخ", "date"\][\s\S]*\["validityPeriod", "مدة صلاحية العرض", "unit:أيام"\][\s\S]*\["bilingual", "إظهار العناوين بالإنجليزية", "checkbox"\]/);
+  assert.match(app, /id: "land"[\s\S]*title: "تفاصيل الأرض والصك"[\s\S]*\["plotNumber", "رقم القطعة"\][\s\S]*\["landArea", "مساحة الأرض", "unit:م²"\][\s\S]*\["planNumber", "رقم المخطط"\][\s\S]*\["deedNumber", "رقم الصك"\][\s\S]*\["deedDate", "تاريخ الصك", "date"\]/);
+});
+
+test("mobile users edit before previewing", () => {
+  assert.match(css, /@media \(max-width: 900px\)\s*{[\s\S]*grid-template-areas:\s*"editor"[\s\S]*"preview"[\s\S]*"projects"/);
 });
 
 test("section titles are edited via an edit button and sync to the PDF page titles", () => {

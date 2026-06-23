@@ -1097,6 +1097,18 @@ textarea {
   line-height: 1.6;
 }
 
+.quick-start-hint {
+  margin: 0 0 14px;
+  padding: 10px 12px;
+  border: 1px solid rgba(210, 168, 76, 0.34);
+  border-radius: 8px;
+  background: #fffaf0;
+  color: var(--charcoal);
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.7;
+}
+
 .section-header-toggle {
   display: flex;
   align-items: center;
@@ -2043,8 +2055,8 @@ textarea {
   .workspace {
     grid-template-columns: 1fr;
     grid-template-areas:
-      "preview"
       "editor"
+      "preview"
       "projects";
   }
 
