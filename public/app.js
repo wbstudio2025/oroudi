@@ -1438,9 +1438,19 @@ function setLocalModePreference(enabled) {
   }
 }
 
+let loginOverlayPendingAfterIntro = false;
+
+function isIntroOverlayVisible() {
+  const overlay = document.querySelector("#introOverlay");
+  return Boolean(overlay && !overlay.hidden);
+}
+
 function showLoginOverlay(show) {
+  const shouldDeferLogin = show && isIntroOverlayVisible();
+  loginOverlayPendingAfterIntro = shouldDeferLogin;
+
   if (loginOverlay) {
-    loginOverlay.hidden = !show;
+    loginOverlay.hidden = !show || shouldDeferLogin;
   }
 
   if (cloudLoginBtn) {
@@ -4271,11 +4281,21 @@ function hideIntro(markSeen) {
       /* ignore storage failures */
     }
   }
+  if (loginOverlayPendingAfterIntro) {
+    loginOverlayPendingAfterIntro = false;
+    if (cloudState.configured && !cloudState.ready && !isLocalModePreferred()) {
+      showLoginOverlay(true);
+    }
+  }
 }
 
 function showIntro() {
   if (!introOverlay || !introSlides.length) {
     return;
+  }
+  if (loginOverlay && !loginOverlay.hidden) {
+    loginOverlayPendingAfterIntro = true;
+    loginOverlay.hidden = true;
   }
   introIndex = 0;
   renderIntroSlide();

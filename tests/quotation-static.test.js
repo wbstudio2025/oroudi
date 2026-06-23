@@ -713,6 +713,14 @@ test("first-visit animated walkthrough explains the app and can be replayed", ()
   assert.match(app, /maybeShowIntro\(\)/);
 });
 
+test("first-visit walkthrough defers the login card until the intro closes", () => {
+  assert.match(app, /let loginOverlayPendingAfterIntro = false/);
+  assert.match(app, /function isIntroOverlayVisible\(\)/);
+  assert.match(app, /const shouldDeferLogin = show && isIntroOverlayVisible\(\)/);
+  assert.match(app, /loginOverlay\.hidden = !show \|\| shouldDeferLogin/);
+  assert.match(app, /if \(loginOverlayPendingAfterIntro\) \{[\s\S]*showLoginOverlay\(true\);/);
+});
+
 test("projects panel has a live search with result count", () => {
   assert.match(html, /id="projectSearch"/);
   assert.match(html, /id="projectsCount"/);
