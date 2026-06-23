@@ -105,7 +105,8 @@ sees their own office.
 
 The app supports **self-serve signup with a private workspace per user**: anyone can create an
 account from the login card, and each new account gets its own isolated office and projects (RLS
-keeps them from seeing anyone else's). Setup:
+keeps them from seeing anyone else's). The currently verified hosted origin is
+[`https://oroudi.wbstudio2025.workers.dev`](https://oroudi.wbstudio2025.workers.dev). Setup:
 
 1. Create a Supabase project (note the project URL + anon key under **Project Settings → API**).
 2. **SQL Editor** → paste and run [`supabase/schema.sql`](supabase/schema.sql).
@@ -119,8 +120,9 @@ keeps them from seeing anyone else's). Setup:
 4. **Authentication → Sign In / Providers → Email:** enable the Email provider and **"Allow new
    users to sign up"**. To start, turn **"Confirm email" OFF** so signup logs the user straight in.
    (You can enable confirmation later — when you do, also set **Site URL** and **Redirect URLs**
-   under **Authentication → URL Configuration**, e.g. your deployed `workers.dev` origin and
-   `http://127.0.0.1:8137` for local testing.)
+   under **Authentication → URL Configuration**, for example
+   `https://oroudi.wbstudio2025.workers.dev` for the hosted app and `http://127.0.0.1:8137` for
+   local testing.)
 5. Put the Project URL + anon key into `public/supabase-config.js` and commit them (both are public;
    RLS protects the data). Pushing to `main` deploys them automatically.
 
