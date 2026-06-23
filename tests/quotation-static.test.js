@@ -95,6 +95,12 @@ test("successful cloud workspace load refreshes header auth controls after ready
   assert.match(app, /cloudState\.ready = true;[\s\S]*renderApp\(\);[\s\S]*showLoginOverlay\(false\);[\s\S]*setSyncStatus\("ready", "متصل - مشاريع المكتب مشتركة"\);/);
 });
 
+test("hidden header action buttons stay hidden despite button display styles", () => {
+  assert.match(css, /(?:^|\n)\[hidden\]\s*{[\s\S]*display:\s*none\s*!important/);
+  assert.match(html, /id="cloudLoginBtn" class="secondary-btn" type="button" hidden/);
+  assert.match(html, /id="logoutBtn" class="secondary-btn" type="button" hidden/);
+});
+
 test("scope cards choose semantic icons by item name", () => {
   assert.match(app, /const scopeIconMap\s*=/);
   [
