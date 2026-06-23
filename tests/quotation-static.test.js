@@ -337,14 +337,22 @@ test("desktop workspace uses inputs right, preview center, projects left", () =>
 
 test("saved projects persist locally and can be switched from the projects panel", () => {
   assert.match(app, /const PROJECTS_STORAGE_KEY\s*=/);
-  assert.match(app, /localStorage\.getItem\(PROJECTS_STORAGE_KEY\)/);
-  assert.match(app, /localStorage\.setItem\(PROJECTS_STORAGE_KEY/);
+  assert.match(app, /readLocalStorageValue\(PROJECTS_STORAGE_KEY, "\[\]"\)/);
+  assert.match(app, /writeLocalStorageValue\(PROJECTS_STORAGE_KEY/);
   assert.match(app, /function renderProjectsPanel\(\)/);
   assert.match(app, /data-project-id="\$\{escapeHtml\(project\.id\)\}"/);
   assert.match(app, /function saveActiveProject\(\)/);
   assert.match(app, /function createNewProject\(\)/);
   assert.match(app, /function duplicateActiveProject\(\)/);
   assert.match(app, /function deleteProject\(projectId\)/);
+});
+
+test("saved-project storage failures do not break the editor shell", () => {
+  assert.match(app, /function readLocalStorageValue\(key, fallback = ""\)/);
+  assert.match(app, /function writeLocalStorageValue\(key, value\)/);
+  assert.match(app, /activeProjectId = readLocalStorageValue\(ACTIVE_PROJECT_STORAGE_KEY\)/);
+  assert.match(app, /writeLocalStorageValue\(PROJECTS_STORAGE_KEY, JSON\.stringify\(savedProjects\)\)/);
+  assert.match(app, /writeLocalStorageValue\(ACTIVE_PROJECT_STORAGE_KEY, activeProjectId\)/);
 });
 
 test("project cards include per-project status and delete controls without a global delete button", () => {

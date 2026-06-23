@@ -1279,6 +1279,24 @@ function cloneData(data) {
   return JSON.parse(JSON.stringify(data));
 }
 
+function readLocalStorageValue(key, fallback = "") {
+  try {
+    const value = localStorage.getItem(key);
+    return value === null ? fallback : value;
+  } catch (error) {
+    return fallback;
+  }
+}
+
+function writeLocalStorageValue(key, value) {
+  try {
+    localStorage.setItem(key, value);
+    return true;
+  } catch (error) {
+    return false;
+  }
+}
+
 function createProjectId() {
   if (window.crypto && typeof window.crypto.randomUUID === "function") {
     return window.crypto.randomUUID();
@@ -1337,7 +1355,7 @@ function normalizeProjectRecord(project) {
 
 function readRawLocalProjects() {
   try {
-    const parsedProjects = JSON.parse(localStorage.getItem(PROJECTS_STORAGE_KEY) || "[]");
+    const parsedProjects = JSON.parse(readLocalStorageValue(PROJECTS_STORAGE_KEY, "[]"));
     return Array.isArray(parsedProjects) ? parsedProjects.filter((project) => project && project.id && project.data) : [];
   } catch (error) {
     return [];
@@ -1349,8 +1367,8 @@ function readSavedProjects() {
 }
 
 function persistProjectsLocal() {
-  localStorage.setItem(PROJECTS_STORAGE_KEY, JSON.stringify(savedProjects));
-  localStorage.setItem(ACTIVE_PROJECT_STORAGE_KEY, activeProjectId);
+  writeLocalStorageValue(PROJECTS_STORAGE_KEY, JSON.stringify(savedProjects));
+  writeLocalStorageValue(ACTIVE_PROJECT_STORAGE_KEY, activeProjectId);
 }
 
 function persistProjects() {
@@ -1893,7 +1911,7 @@ function createProject(data = getDefaultQuotationData(), name = getProjectName(d
 
 function initializeProjects() {
   savedProjects = readSavedProjects();
-  activeProjectId = localStorage.getItem(ACTIVE_PROJECT_STORAGE_KEY) || "";
+  activeProjectId = readLocalStorageValue(ACTIVE_PROJECT_STORAGE_KEY);
 
   if (!savedProjects.length) {
     const firstProject = createProject(quotationData, getProjectName(quotationData));
