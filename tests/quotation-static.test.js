@@ -91,6 +91,10 @@ test("returning from no-sync mode keeps cloud auth session handling wired", () =
   assert.match(app, /await initializeCloudSession\(\)/);
 });
 
+test("successful cloud workspace load refreshes header auth controls after ready", () => {
+  assert.match(app, /cloudState\.ready = true;[\s\S]*renderApp\(\);[\s\S]*showLoginOverlay\(false\);[\s\S]*setSyncStatus\("ready", "متصل - مشاريع المكتب مشتركة"\);/);
+});
+
 test("scope cards choose semantic icons by item name", () => {
   assert.match(app, /const scopeIconMap\s*=/);
   [

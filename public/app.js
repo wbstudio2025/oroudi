@@ -1707,6 +1707,7 @@ async function loadCloudWorkspace() {
 
     cloudState.applyingCloud = false;
     renderApp();
+    showLoginOverlay(false);
     setSyncStatus("ready", "متصل - مشاريع المكتب مشتركة");
   } catch (error) {
     cloudState.ready = false;
