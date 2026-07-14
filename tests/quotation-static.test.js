@@ -274,7 +274,21 @@ test("fast first quote section opens by default with the essential fields", () =
   assert.match(app, /title: "ابدأ العرض"/);
   assert.match(app, /اختر الخدمة، اكتب العميل والسعر، ثم اطبع أو احفظ PDF/);
   assert.match(app, /function resetExpandedSections\(\)\s*{[\s\S]*expandedSections\.add\(DEFAULT_OPEN_SECTION_ID\)/);
-  assert.match(app, /id: "start"[\s\S]*\["serviceCategory", "فئة الخدمة", "category"\][\s\S]*\["permitType", "نوع الخدمة", "permit"\][\s\S]*\["projectType", "نوع المشروع", "select"\][\s\S]*\["clientTitle", "اللقب", "clientTitle"\][\s\S]*\["city", "المدينة"\][\s\S]*\["district", "الحي"\][\s\S]*\["quotationNumber", "رقم العرض"\][\s\S]*\["mainPriceNumber", "قيمة العرض", "money"\]/);
+  assert.match(app, /id: "start"[\s\S]*\["serviceCategory", "فئة الخدمة", "category"\][\s\S]*\["permitType", "نوع الخدمة", "permit"\][\s\S]*\["projectType", "نوع المشروع", "select"\][\s\S]*\["clientTitle", "اللقب", "clientTitle"\][\s\S]*\["city", "المدينة"\][\s\S]*\["district", "الحي"\][\s\S]*\["quotationNumber", "رقم العرض"\]/);
+});
+
+test("financial editor keeps numeric offer value beside the automatic written amount", () => {
+  const startSection = app.slice(app.indexOf('id: "start"'), app.indexOf('id: "contact"'));
+  const financialStart = app.indexOf("const financialBody = `");
+  const termsStart = app.indexOf("const termsBody = `", financialStart);
+  const financialBody = app.slice(financialStart, termsStart);
+
+  assert.doesNotMatch(startSection, /mainPriceNumber/);
+  assert.match(financialBody, /<label for="mainPriceNumber">قيمة العرض<\/label>/);
+  assert.match(financialBody, /data-key="mainPriceNumber"/);
+  assert.match(financialBody, /data-money-key="mainPriceNumber"/);
+  assert.match(financialBody, /getMoneyInputValue\(quotationData\.mainPriceNumber\)/);
+  assert.match(financialBody, /<label for="mainPriceWritten">قيمة العرض كتابة<\/label>/);
 });
 
 test("follow-up editor sections separate contact/date from land/deed details", () => {

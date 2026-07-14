@@ -905,8 +905,7 @@ const fields = [
       ["clientName", "اسم العميل"],
       ["city", "المدينة"],
       ["district", "الحي"],
-      ["quotationNumber", "رقم العرض"],
-      ["mainPriceNumber", "قيمة العرض", "money"]
+      ["quotationNumber", "رقم العرض"]
     ]
   },
   {
@@ -2659,6 +2658,13 @@ function renderEditor() {
   `;
 
   const financialBody = `
+    <div class="field">
+      <label for="mainPriceNumber">قيمة العرض</label>
+      <div class="money-input-row">
+        <input id="mainPriceNumber" data-key="mainPriceNumber" data-money-key="mainPriceNumber" type="text" inputmode="decimal" placeholder="0" value="${escapeHtml(getMoneyInputValue(quotationData.mainPriceNumber))}">
+        <span>ريال</span>
+      </div>
+    </div>
     <div class="field">
       <label for="mainPriceWritten">قيمة العرض كتابة</label>
       <input id="mainPriceWritten" data-key="mainPriceWritten" type="text" placeholder="قيمة العرض كتابة" value="${escapeHtml(quotationData.mainPriceWritten)}">
