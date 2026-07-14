@@ -107,13 +107,16 @@
         <p id="loginIntro">سجّل الدخول لفتح مشاريعك المحفوظة على الإنترنت.</p>
         <label id="officeNameLabel" for="signupOfficeName" hidden>اسم المكتب / الشركة</label>
         <input id="signupOfficeName" type="text" autocomplete="organization" placeholder="اسم المكتب كما يظهر على العروض" hidden>
-        <label for="loginEmail">البريد الإلكتروني</label>
+        <label id="loginEmailLabel" for="loginEmail">البريد الإلكتروني</label>
         <input id="loginEmail" type="email" autocomplete="username" required>
         <label for="loginPassword">كلمة المرور</label>
         <input id="loginPassword" type="password" autocomplete="current-password" required>
+        <label id="resetPasswordConfirmLabel" for="resetPasswordConfirm" hidden>تأكيد كلمة المرور الجديدة</label>
+        <input id="resetPasswordConfirm" type="password" autocomplete="new-password" hidden>
+        <button id="forgotPasswordBtn" class="link-btn forgot-password-btn" type="button">نسيت كلمة المرور؟</button>
         <button id="loginSubmitBtn" class="primary-btn" type="submit">دخول</button>
         <p id="loginStatus" class="login-status" role="alert"></p>
-        <p class="login-switch">
+        <p id="authSwitch" class="login-switch">
           <span id="authSwitchPrompt">ليس لديك حساب؟</span>
           <button id="authModeToggle" class="link-btn" type="button">إنشاء حساب جديد</button>
         </p>

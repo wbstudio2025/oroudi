@@ -215,15 +215,19 @@ const loginOverlay = document.querySelector("#loginOverlay");
 const loginForm = document.querySelector("#loginForm");
 const loginEmail = document.querySelector("#loginEmail");
 const loginPassword = document.querySelector("#loginPassword");
+const resetPasswordConfirm = document.querySelector("#resetPasswordConfirm");
 const loginStatus = document.querySelector("#loginStatus");
 const loginSubmitBtn = document.querySelector("#loginSubmitBtn");
 const loginHeading = document.querySelector("#loginHeading");
 const loginIntro = document.querySelector("#loginIntro");
+const forgotPasswordBtn = document.querySelector("#forgotPasswordBtn");
 const authModeToggle = document.querySelector("#authModeToggle");
 const authSwitchPrompt = document.querySelector("#authSwitchPrompt");
+const authSwitch = document.querySelector("#authSwitch");
 const continueLocalBtn = document.querySelector("#continueLocalBtn");
 const signupOfficeName = document.querySelector("#signupOfficeName");
 const officeNameLabel = document.querySelector("#officeNameLabel");
+const resetPasswordConfirmLabel = document.querySelector("#resetPasswordConfirmLabel");
 const syncStatus = document.querySelector("#syncStatus");
 const cloudLoginBtn = document.querySelector("#cloudLoginBtn");
 const logoutBtn = document.querySelector("#logoutBtn");
@@ -1504,19 +1508,26 @@ async function showCloudLogin() {
 }
 
 function setAuthMode(mode) {
-  authMode = mode === "signup" ? "signup" : "signin";
+  authMode = ["signup", "recovery"].includes(mode) ? mode : "signin";
   const isSignup = authMode === "signup";
+  const isRecovery = authMode === "recovery";
 
   if (loginHeading) {
-    loginHeading.textContent = isSignup ? "إنشاء حساب جديد" : "تسجيل الدخول";
+    loginHeading.textContent = isSignup
+      ? "إنشاء حساب جديد"
+      : isRecovery
+        ? "تعيين كلمة مرور جديدة"
+        : "تسجيل الدخول";
   }
   if (loginIntro) {
     loginIntro.textContent = isSignup
       ? "أنشئ حساباً جديداً بمساحة عمل خاصة بك لحفظ عروضك على الإنترنت."
-      : "سجّل الدخول لفتح مشاريعك المحفوظة على الإنترنت.";
+      : isRecovery
+        ? "اكتب كلمة مرور جديدة لحسابك ثم احفظها للمتابعة."
+        : "سجّل الدخول لفتح مشاريعك المحفوظة على الإنترنت.";
   }
   if (loginSubmitBtn) {
-    loginSubmitBtn.textContent = isSignup ? "إنشاء حساب" : "دخول";
+    loginSubmitBtn.textContent = isSignup ? "إنشاء حساب" : isRecovery ? "حفظ كلمة المرور" : "دخول";
   }
   if (authSwitchPrompt) {
     authSwitchPrompt.textContent = isSignup ? "لديك حساب بالفعل؟" : "ليس لديك حساب؟";
@@ -1525,7 +1536,7 @@ function setAuthMode(mode) {
     authModeToggle.textContent = isSignup ? "تسجيل الدخول" : "إنشاء حساب جديد";
   }
   if (loginPassword) {
-    loginPassword.autocomplete = isSignup ? "new-password" : "current-password";
+    loginPassword.autocomplete = isSignup || isRecovery ? "new-password" : "current-password";
   }
   if (officeNameLabel) {
     officeNameLabel.hidden = !isSignup;
@@ -1533,8 +1544,28 @@ function setAuthMode(mode) {
   if (signupOfficeName) {
     signupOfficeName.hidden = !isSignup;
   }
+  if (resetPasswordConfirmLabel) {
+    resetPasswordConfirmLabel.hidden = !isRecovery;
+  }
+  if (resetPasswordConfirm) {
+    resetPasswordConfirm.hidden = !isRecovery;
+    resetPasswordConfirm.required = isRecovery;
+    if (!isRecovery) {
+      resetPasswordConfirm.value = "";
+    }
+  }
+  if (forgotPasswordBtn) {
+    forgotPasswordBtn.hidden = !(!isSignup && !isRecovery);
+  }
+  if (authSwitch) {
+    authSwitch.hidden = isRecovery;
+  }
 
   setLoginMessage("");
+}
+
+function getPasswordRecoveryRedirectUrl() {
+  return `${window.location.origin}${window.location.pathname}`;
 }
 
 function createSupabaseClient() {
@@ -1759,7 +1790,14 @@ function bindAuthStateListener() {
 
   cloudState.authListenerBound = true;
   cloudState.client.auth.onAuthStateChange((event, session) => {
-    if (event === "SIGNED_IN" && session) {
+    if (event === "PASSWORD_RECOVERY") {
+      if (loginEmail && session && session.user && session.user.email) {
+        loginEmail.value = session.user.email;
+      }
+      setAuthMode("recovery");
+      showLoginOverlay(true);
+      setLoginMessage("اكتب كلمة مرور جديدة ثم اضغط حفظ كلمة المرور.");
+    } else if (event === "SIGNED_IN" && session && authMode !== "recovery") {
       // Defer out of the auth callback: supabase-js holds an internal lock while
       // this runs, and awaiting further Supabase calls inside it (loadCloudWorkspace)
       // contends with that lock and fails. setTimeout(0) runs it after the lock frees.
@@ -4175,8 +4213,43 @@ if (loginForm) {
     const email = loginEmail ? loginEmail.value.trim() : "";
     const password = loginPassword ? loginPassword.value : "";
 
-    if (!email || !password) {
+    if (authMode !== "recovery" && (!email || !password)) {
       setLoginMessage("أدخل البريد الإلكتروني وكلمة المرور.");
+      return;
+    }
+
+    if (!password) {
+      setLoginMessage("أدخل كلمة المرور الجديدة.");
+      return;
+    }
+
+    if (authMode === "recovery") {
+      const confirmation = resetPasswordConfirm ? resetPasswordConfirm.value : "";
+
+      if (password.length < 6) {
+        setLoginMessage("كلمة المرور ضعيفة جداً (6 أحرف على الأقل).");
+        return;
+      }
+      if (password !== confirmation) {
+        setLoginMessage("كلمتا المرور غير متطابقتين.");
+        return;
+      }
+
+      try {
+        setLoginMessage("جاري حفظ كلمة المرور...");
+        setSyncStatus("syncing", "جاري تحديث كلمة المرور...");
+        const { error } = await cloudState.client.auth.updateUser({ password });
+
+        if (error) {
+          throw error;
+        }
+
+        setAuthMode("signin");
+        await loadCloudWorkspace();
+      } catch (error) {
+        setSyncStatus("error", "تعذّر تحديث كلمة المرور");
+        setLoginMessage("تعذّر تحديث كلمة المرور. اطلب رابطاً جديداً وحاول مرة أخرى.");
+      }
       return;
     }
 
@@ -4240,6 +4313,39 @@ if (loginForm) {
 if (authModeToggle) {
   authModeToggle.addEventListener("click", () => {
     setAuthMode(authMode === "signin" ? "signup" : "signin");
+  });
+}
+
+if (forgotPasswordBtn) {
+  forgotPasswordBtn.addEventListener("click", async () => {
+    if (!cloudState.client) {
+      setLoginMessage("إعدادات Supabase غير مكتملة.");
+      return;
+    }
+
+    const email = loginEmail ? loginEmail.value.trim() : "";
+    if (!email) {
+      setLoginMessage("أدخل بريدك الإلكتروني أولاً.");
+      return;
+    }
+
+    try {
+      setLoginMessage("جاري إرسال رابط الاستعادة...");
+      setSyncStatus("syncing", "جاري إرسال رابط الاستعادة...");
+      const { error } = await cloudState.client.auth.resetPasswordForEmail(email, {
+        redirectTo: getPasswordRecoveryRedirectUrl()
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      setSyncStatus("ready", "تحقق من بريدك الإلكتروني");
+      setLoginMessage("إذا كان البريد مسجلاً، فسيصلك رابط لتعيين كلمة مرور جديدة.");
+    } catch (error) {
+      setSyncStatus("error", "تعذّر إرسال رابط الاستعادة");
+      setLoginMessage("تعذّر إرسال رابط الاستعادة. تحقّق من البريد والاتصال.");
+    }
   });
 }
 

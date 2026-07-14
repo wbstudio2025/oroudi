@@ -124,7 +124,13 @@ keeps them from seeing anyone else's). The currently verified hosted origin is
    `https://oroudi.wbstudio2025.workers.dev` for the hosted app and `http://127.0.0.1:8137` for
    local testing.)
 5. Put the Project URL + anon key into `public/supabase-config.js` and commit them (both are public;
-   RLS protects the data). Pushing to `main` deploys them automatically.
+    RLS protects the data). Pushing to `main` deploys them automatically.
+
+   The login card includes **نسيت كلمة المرور؟**. It sends a recovery link back to the current app
+   origin, so keep both the hosted URL and `http://127.0.0.1:8137` in **Authentication → URL
+   Configuration → Redirect URLs** when local recovery testing is needed. Account-level password
+   resets, session revocation, and user deletion remain admin actions in **Authentication → Users**;
+   never put a Supabase service-role key in the browser or repository.
 
 > **Single shared office instead?** If you'd rather have one office whose projects everyone shares
 > (the older model), skip step 3 and instead add one user under **Authentication → Users**, then run

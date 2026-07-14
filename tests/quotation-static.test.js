@@ -73,10 +73,15 @@ test("cloud persistence adapter maps projects and prefers cloud data over local 
 test("shared office login syncs brand profile and projects through Supabase", () => {
   assert.match(html, /id="loginOverlay"/);
   assert.match(html, /id="loginForm"/);
+  assert.match(html, /id="forgotPasswordBtn"/);
+  assert.match(html, /id="resetPasswordConfirm"/);
   assert.match(html, /id="syncStatus"/);
   assert.match(app, /const cloudState\s*=/);
   assert.match(app, /function createSupabaseClient\(\)/);
   assert.match(app, /auth\.signInWithPassword/);
+  assert.match(app, /auth\.resetPasswordForEmail/);
+  assert.match(app, /auth\.updateUser\(\{ password \}\)/);
+  assert.match(app, /event === "PASSWORD_RECOVERY"/);
   assert.match(app, /auth\.signOut/);
   assert.match(app, /function initializeCloudSession\(\)/);
   assert.match(app, /function loadCloudWorkspace\(\)/);
