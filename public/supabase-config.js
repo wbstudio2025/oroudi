@@ -12,6 +12,6 @@
 // main branch auto-deploys to Cloudflare via the deploy job in
 // .github/workflows/ci.yml; `npx wrangler deploy` still works locally too.
 window.OROUDI_SUPABASE_CONFIG = {
-  SUPABASE_URL: "https://xvmyqlwwqmwwgmsjtylv.supabase.co",
-  SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh2bXlxbHd3cW13d2dtc2p0eWx2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE2MTM0NjEsImV4cCI6MjA5NzE4OTQ2MX0.ITTJxqKvOU-EtqMmKnJCWaGZ6l4UCQDWYyXLrLHJf48"
+  SUPABASE_URL: "https://qulywdugkdskjpsbcrxi.supabase.co",
+  SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF1bHl3ZHVna2Rza2pwc2JjcnhpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEwNzg4NTgsImV4cCI6MjA5NjY1NDg1OH0.vfvsFkFhBSBYj_y15No_WJO3njpcycu3fINXJ-co7Hw"
 };

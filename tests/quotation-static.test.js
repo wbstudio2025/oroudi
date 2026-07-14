@@ -22,6 +22,16 @@ function test(name, fn) {
   }
 }
 
+function readSupabaseConfigValue(key) {
+  const match = config.match(new RegExp(`${key}:\\s*"([^"]+)"`));
+  return match ? match[1] : "";
+}
+
+function decodeJwtPayload(token) {
+  const payload = token.split(".")[1] || "";
+  return JSON.parse(Buffer.from(payload, "base64url").toString("utf8"));
+}
+
 test("printed pages use the structured office footer on every non-final page shell", () => {
   assert.match(app, /class="doc-footer"/);
   assert.match(app, /function renderFooterStrip\(\)/);
@@ -41,6 +51,15 @@ test("Supabase client and public config load before the app entrypoint", () => {
   assert.match(config, /window\.OROUDI_SUPABASE_CONFIG/);
   assert.match(config, /SUPABASE_URL/);
   assert.match(config, /SUPABASE_ANON_KEY/);
+});
+
+test("public Supabase config targets the active project", () => {
+  const url = readSupabaseConfigValue("SUPABASE_URL");
+  const anonKey = readSupabaseConfigValue("SUPABASE_ANON_KEY");
+  const payload = decodeJwtPayload(anonKey);
+
+  assert.equal(url, "https://qulywdugkdskjpsbcrxi.supabase.co");
+  assert.equal(payload.ref, "qulywdugkdskjpsbcrxi");
 });
 
 test("cloud persistence adapter maps projects and prefers cloud data over local cache", () => {
